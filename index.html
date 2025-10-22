@@ -1,139 +1,183 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DexScan Dashboard</title>
+  <meta charset="utf-8">
+  <title>DexScan - Bitget Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #0b0c10;
-      color: #fff;
-      margin: 0;
-      padding: 0;
-    }
-    header {
-      background: #1f2833;
-      text-align: center;
-      padding: 1rem 0;
-      font-size: 1.5rem;
-      font-weight: bold;
-      letter-spacing: 1px;
-    }
-    .container {
-      width: 90%;
-      max-width: 1100px;
-      margin: 2rem auto;
-    }
-    .section {
-      background: #1c1c1c;
-      border-radius: 10px;
-      padding: 1.5rem;
-      margin-bottom: 2rem;
-      box-shadow: 0 0 10px rgba(0,0,0,0.3);
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 1rem;
-    }
-    th, td {
-      text-align: left;
-      padding: 10px;
-      border-bottom: 1px solid #333;
-    }
-    th {
-      background-color: #0b0c10;
-      color: #66fcf1;
-    }
-    .buy { color: #00ff99; font-weight: bold; }
-    .sell { color: #ff5555; font-weight: bold; }
+    body{background:#071020;color:#e6f0f0;font-family:Inter,Arial,Helvetica,sans-serif;margin:0;padding:18px}
+    header{display:flex;align-items:center;justify-content:space-between;padding:12px;background:#071526;border-radius:8px}
+    h1{margin:0;font-size:18px}
+    .row{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+    .card{background:#0e1720;padding:12px;border-radius:8px;flex:1;min-width:260px}
+    button{background:#2a9d8f;color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer}
+    table{width:100%;border-collapse:collapse;margin-top:8px}
+    th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);text-align:left}
+    .green{color:#4ade80}.red{color:#fb7185}
+    .small{font-size:13px;color:#9fb0b9}
+    #logs{max-height:200px;overflow:auto;background:#071526;padding:8px;border-radius:6px}
   </style>
 </head>
 <body>
-  <header>💹 DexScan AI Dashboard</header>
-  <div class="container">
-    
-    <!-- 🔹 Top 10 Coins -->
-    <div class="section">
-      <h2>Top 10 Cryptos</h2>
-      <table id="top10-table">
-        <thead><tr><th>Symbol</th><th>Price</th><th>24h Change (%)</th></tr></thead>
+  <header>
+    <h1>💹 DexScan — Bitget Dashboard</h1>
+    <div id="status" class="small">Connecting...</div>
+  </header>
+
+  <div class="row">
+    <div class="card">
+      <h3>Controls</h3>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="deepScan">🔍 Deep Scan</button>
+        <button id="toggleAuto">⏱ Auto: OFF</button>
+        <button id="refreshAll">🔄 Refresh</button>
+      </div>
+      <div style="margin-top:8px" class="small">Demo mode: controlled by backend env BITGET_DEMO. Do not enable live until tested.</div>
+      <div style="margin-top:8px" id="logs" class="small"></div>
+    </div>
+
+    <div class="card">
+      <h3>Top 10</h3>
+      <table id="top10">
+        <thead><tr><th>Symbol</th><th>Price</th><th>24h</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
 
-    <!-- 🔹 AI Scanner -->
-    <div class="section">
-      <h2>AI Scanner Signals</h2>
-      <table id="scan-table">
-        <thead><tr><th>Symbol</th><th>Signal</th><th>Buy Price</th><th>Target</th></tr></thead>
+    <div class="card">
+      <h3>Scanner Results</h3>
+      <table id="scan">
+        <thead><tr><th>Symbol</th><th>Score</th><th>Entry</th><th>TP</th><th>Action</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
 
-    <!-- 🔹 Wallet -->
-    <div class="section">
-      <h2>Wallet Snapshot</h2>
-      <p id="balance"></p>
-      <table id="wallet-table">
-        <thead><tr><th>Symbol</th><th>Amount</th><th>Value (USDT)</th></tr></thead>
-        <tbody></tbody>
-      </table>
+    <div class="card">
+      <h3>Trades & Wallet</h3>
+      <div id="balance" class="small">Balance: ...</div>
+      <div style="margin-top:8px">
+        <button id="showTrades">Show Trades</button>
+      </div>
+      <div id="tradelist" style="margin-top:8px"></div>
     </div>
-
   </div>
 
-  <script>
-    const API_BASE = "https://dexscan-backend.onrender.com/api";
+<script>
+const API_BASE = location.protocol + '//' + location.host + '/api';
 
-    async function fetchTop10() {
-      const res = await fetch(`${API_BASE}/top10`);
-      const data = await res.json();
-      const table = document.querySelector("#top10-table tbody");
-      table.innerHTML = data.map(d => `
-        <tr>
-          <td>${d.symbol}</td>
-          <td>${parseFloat(d.price).toFixed(4)}</td>
-          <td class="${d.change24h.startsWith('-') ? 'sell' : 'buy'}">${d.change24h}%</td>
-        </tr>
-      `).join("");
+function log(msg){
+  const node = document.getElementById("logs");
+  node.innerHTML = new Date().toLocaleTimeString() + " — " + msg + "<br>" + node.innerHTML;
+}
+
+// load top10
+async function loadTop10(){
+  try {
+    const r = await fetch(API_BASE + "/top10");
+    const arr = await r.json();
+    const tbody = document.querySelector("#top10 tbody");
+    tbody.innerHTML = arr.map(a => `<tr>
+      <td>${a.symbol}</td>
+      <td>${Number(a.price).toLocaleString()}</td>
+      <td class="${String(a.change24h).startsWith('-') ? 'red' : 'green'}">${a.change24h}%</td>
+      </tr>`).join("");
+    log("Top10 refreshed");
+  } catch(e){ log("Top10 load error"); }
+}
+
+// load scan
+async function loadScan() {
+  try {
+    const r = await fetch(API_BASE + "/scan/results");
+    const arr = await r.json();
+    const tbody = document.querySelector("#scan tbody");
+    tbody.innerHTML = (arr || []).map(s => `<tr>
+      <td>${s.symbol}</td>
+      <td>${s.score}</td>
+      <td>${Number(s.entry).toFixed(6)}</td>
+      <td>${Number(s.tp).toFixed(6)}</td>
+      <td>
+        <button onclick="manualBuy('${s.symbol}')">Buy</button>
+      </td>
+    </tr>`).join("");
+    log("Scan results loaded");
+  } catch(e){ log("Scan load error"); }
+}
+
+// manual buy
+async function manualBuy(symbol){
+  try {
+    if(!confirm("Place manual BUY on " + symbol + " ?")) return;
+    const body = { symbol, side: "buy" }; // percent uses default PERCENT_PER_TRADE
+    const r = await fetch(API_BASE + "/bitget/order", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
+    const j = await r.json();
+    log("Manual buy response: " + JSON.stringify(j));
+    loadTrades();
+    loadBalance();
+  } catch(e){ log("Buy error: " + e.message); }
+}
+
+// load trades
+async function loadTrades(){
+  try {
+    const r = await fetch(API_BASE + "/trades");
+    const arr = await r.json();
+    const node = document.getElementById("tradelist");
+    if(!arr || arr.length===0){ node.innerHTML = "No trades"; return; }
+    node.innerHTML = arr.slice().reverse().map(t => `<div style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.03)">
+      ${t.id} | ${t.symbol} | ${t.side} | qty:${t.qty} | price:${t.price} | ${t.placed_at}</div>`).join("");
+  } catch(e){ log("Trades load error"); }
+}
+
+// load balance
+async function loadBalance(){
+  try {
+    const r = await fetch(API_BASE + "/bitget/balance");
+    const j = await r.json();
+    if(j && typeof j === 'object') {
+      const b = j["USDT"] || j["usdt"] || j.USDT || (j.data && j.data.USDT) || "n/a";
+      document.getElementById("balance").innerText = "USDT Balance: " + b;
+    } else {
+      document.getElementById("balance").innerText = "Balance: " + JSON.stringify(j);
     }
+  } catch(e){ log("Balance load error"); }
+}
 
-    async function fetchScan() {
-      const res = await fetch(`${API_BASE}/scan/results`);
-      const data = await res.json();
-      const table = document.querySelector("#scan-table tbody");
-      table.innerHTML = data.map(d => `
-        <tr>
-          <td>${d.symbol}</td>
-          <td class="${d.signal.includes('BUY') ? 'buy' : 'sell'}">${d.signal}</td>
-          <td>${d.buyPrice}</td>
-          <td>${d.targetPrice}</td>
-        </tr>
-      `).join("");
-    }
+// deep scan
+document.getElementById("deepScan").addEventListener("click", async () => {
+  try {
+    log("Triggering deep scan (this may take 1-2 minutes)...");
+    const r = await fetch(API_BASE + "/scan/run", { method: "POST" });
+    const j = await r.json();
+    log("Deep scan complete: " + (j.length || 0) + " results");
+    loadScan();
+  } catch(e){ log("Scan trigger error"); }
+});
 
-    async function fetchWallet() {
-      const res = await fetch(`${API_BASE}/wallet/fake`);
-      const data = await res.json();
-      document.getElementById("balance").innerText = `💰 Balance: ${data.balance} USDT`;
-      const table = document.querySelector("#wallet-table tbody");
-      table.innerHTML = data.holdings.map(h => `
-        <tr>
-          <td>${h.symbol}</td>
-          <td>${h.amount}</td>
-          <td>${h.value.toFixed(2)}</td>
-        </tr>
-      `).join("");
-    }
+// auto toggle
+let autoOn = false;
+document.getElementById("toggleAuto").addEventListener("click", async () => {
+  try {
+    autoOn = !autoOn;
+    document.getElementById("toggleAuto").innerText = autoOn ? "⏱ Auto: ON" : "⏱ Auto: OFF";
+    await fetch(API_BASE + "/auto/set", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ enabled: autoOn })});
+    log("Auto toggled: " + autoOn);
+  } catch(e){ log("Auto toggle error"); }
+});
 
-    async function refreshAll() {
-      await Promise.all([fetchTop10(), fetchScan(), fetchWallet()]);
-    }
+// refresh
+document.getElementById("refreshAll").addEventListener("click", () => { loadTop10(); loadScan(); loadBalance(); loadTrades(); });
 
-    refreshAll();
-    setInterval(refreshAll, 20000); // auto-refresh every 20s
-  </script>
+// show trades
+document.getElementById("showTrades").addEventListener("click", () => loadTrades());
+
+// initial load
+loadTop10();
+loadScan();
+loadBalance();
+loadTrades();
+setInterval(loadTop10, 20000);
+setInterval(loadScan, 60000);
+</script>
 </body>
 </html>
