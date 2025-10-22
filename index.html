@@ -1,134 +1,139 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>DexScan Frontend</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DexScan Dashboard</title>
   <style>
-    body { background:#0b0f14; color:#e6eef6; font-family:Arial,Helvetica,sans-serif; padding:18px; }
-    .card { background:#0f1720; padding:12px; border-radius:8px; margin-bottom:12px; box-shadow: 0 6px 18px rgba(0,0,0,0.4); }
-    .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
-    button { background:#2563eb;color:#fff;border:none;padding:8px 10px;border-radius:6px;cursor:pointer; }
-    table { width:100%; border-collapse:collapse; }
-    td,th { padding:8px; text-align:left; border-bottom:1px solid rgba(255,255,255,0.03); }
-    .green{color:#4ade80} .red{color:#fb7185}
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #0b0c10;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #1f2833;
+      text-align: center;
+      padding: 1rem 0;
+      font-size: 1.5rem;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+    .container {
+      width: 90%;
+      max-width: 1100px;
+      margin: 2rem auto;
+    }
+    .section {
+      background: #1c1c1c;
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px;
+      border-bottom: 1px solid #333;
+    }
+    th {
+      background-color: #0b0c10;
+      color: #66fcf1;
+    }
+    .buy { color: #00ff99; font-weight: bold; }
+    .sell { color: #ff5555; font-weight: bold; }
   </style>
 </head>
 <body>
-  <h1>DexScan Dashboard</h1>
-
-  <div class="card">
-    <strong>Backend Status:</strong> <span id="status">Checking...</span>
-  </div>
-
-  <div class="grid">
-    <div class="card">
-      <h3>Top 10 (by volume)</h3>
-      <div id="top10">Loading...</div>
+  <header>💹 DexScan AI Dashboard</header>
+  <div class="container">
+    
+    <!-- 🔹 Top 10 Coins -->
+    <div class="section">
+      <h2>Top 10 Cryptos</h2>
+      <table id="top10-table">
+        <thead><tr><th>Symbol</th><th>Price</th><th>24h Change (%)</th></tr></thead>
+        <tbody></tbody>
+      </table>
     </div>
 
-    <div class="card">
-      <h3>AI Scanner Results</h3>
-      <button id="runScanBtn">Run Deep Scan Now</button>
-      <div id="scanResults">No results yet.</div>
+    <!-- 🔹 AI Scanner -->
+    <div class="section">
+      <h2>AI Scanner Signals</h2>
+      <table id="scan-table">
+        <thead><tr><th>Symbol</th><th>Signal</th><th>Buy Price</th><th>Target</th></tr></thead>
+        <tbody></tbody>
+      </table>
     </div>
 
-    <div class="card">
-      <h3>Fake Wallet</h3>
-      <div id="wallet">Loading...</div>
+    <!-- 🔹 Wallet -->
+    <div class="section">
+      <h2>Wallet Snapshot</h2>
+      <p id="balance"></p>
+      <table id="wallet-table">
+        <thead><tr><th>Symbol</th><th>Amount</th><th>Value (USDT)</th></tr></thead>
+        <tbody></tbody>
+      </table>
     </div>
+
   </div>
 
   <script>
-    const BACKEND = "https://dexscan-backend.onrender.com";
+    const API_BASE = "https://dexscan-backend.onrender.com/api";
 
-    async function checkStatus() {
-      try {
-        const r = await fetch(BACKEND + "/");
-        const txt = await r.text();
-        document.getElementById("status").innerText = txt;
-      } catch (e) {
-        document.getElementById("status").innerText = "Backend unreachable";
-      }
+    async function fetchTop10() {
+      const res = await fetch(`${API_BASE}/top10`);
+      const data = await res.json();
+      const table = document.querySelector("#top10-table tbody");
+      table.innerHTML = data.map(d => `
+        <tr>
+          <td>${d.symbol}</td>
+          <td>${parseFloat(d.price).toFixed(4)}</td>
+          <td class="${d.change24h.startsWith('-') ? 'sell' : 'buy'}">${d.change24h}%</td>
+        </tr>
+      `).join("");
     }
 
-    async function loadTop10(){
-      try {
-        const r = await fetch(BACKEND + "/api/top10");
-        const arr = await r.json();
-        const el = document.getElementById("top10");
-        if (!Array.isArray(arr)) { el.innerText = "No data"; return; }
-        const rows = arr.map(a => `
-          <div style="display:flex;justify-content:space-between;padding:6px 0">
-            <div><b>${a.symbol}</b></div>
-            <div>${Number(a.price).toLocaleString()}</div>
-            <div class="${parseFloat(a.change24h) < 0 ? 'red' : 'green'}">${a.change24h}%</div>
-          </div>
-        `).join("");
-        el.innerHTML = rows;
-      } catch(e) { document.getElementById("top10").innerText = "Failed to load top10"; console.error(e); }
+    async function fetchScan() {
+      const res = await fetch(`${API_BASE}/scan/results`);
+      const data = await res.json();
+      const table = document.querySelector("#scan-table tbody");
+      table.innerHTML = data.map(d => `
+        <tr>
+          <td>${d.symbol}</td>
+          <td class="${d.signal.includes('BUY') ? 'buy' : 'sell'}">${d.signal}</td>
+          <td>${d.buyPrice}</td>
+          <td>${d.targetPrice}</td>
+        </tr>
+      `).join("");
     }
 
-    async function loadScanResults(){
-      try {
-        const r = await fetch(BACKEND + "/api/scan/results");
-        const arr = await r.json();
-        const el = document.getElementById("scanResults");
-        if (!arr || arr.length === 0) { el.innerText = "No signals"; return; }
-        el.innerHTML = arr.map(s => `
-          <div style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.03)">
-            <div><b>${s.symbol}</b> — Score: ${s.score ?? '—'}</div>
-            <div>Entry: ${Number(s.entry).toFixed(6)} | TP: ${Number(s.tp).toFixed(6)} | SL: ${Number(s.sl).toFixed(6)}</div>
-            <div style="margin-top:6px">
-              <button onclick="simBuy('${s.symbol}', ${s.entry})">Sim Buy $100</button>
-            </div>
-          </div>
-        `).join("");
-      } catch(e){ document.getElementById("scanResults").innerText = "Failed to load results"; console.error(e); }
+    async function fetchWallet() {
+      const res = await fetch(`${API_BASE}/wallet/fake`);
+      const data = await res.json();
+      document.getElementById("balance").innerText = `💰 Balance: ${data.balance} USDT`;
+      const table = document.querySelector("#wallet-table tbody");
+      table.innerHTML = data.holdings.map(h => `
+        <tr>
+          <td>${h.symbol}</td>
+          <td>${h.amount}</td>
+          <td>${h.value.toFixed(2)}</td>
+        </tr>
+      `).join("");
     }
 
-    async function loadWallet(){
-      try {
-        const r = await fetch(BACKEND + "/api/wallet/fake");
-        const j = await r.json();
-        const el = document.getElementById("wallet");
-        el.innerHTML = `<div>USDT Balance: ${Number(j.balance).toFixed(6)}</div>
-          <div style="margin-top:8px"><b>Open Positions:</b></div>
-          <div>${(j.positions && j.positions.length) ? j.positions.map(p=>`<div>${p.symbol} — ${p.qty} @ ${p.entry_price}</div>`).join("") : 'None'}</div>
-          <div style="margin-top:8px"><b>Trades:</b></div>
-          <div>${(j.trades && j.trades.length) ? j.trades.slice().reverse().map(t=>`<div>${t.id} | ${t.symbol} | ${t.status} | qty:${t.qty} | pnl:${t.pnl||0}</div>`).join("") : 'No trades'}</div>`;
-      } catch(e){ document.getElementById("wallet").innerText = "Failed to load wallet"; console.error(e); }
+    async function refreshAll() {
+      await Promise.all([fetchTop10(), fetchScan(), fetchWallet()]);
     }
 
-    // Run scan (calls backend)
-    document.getElementById("runScanBtn").onclick = async () => {
-      document.getElementById("scanResults").innerText = "Running scan... this may take 1-2 minutes.";
-      try {
-        const r = await fetch(BACKEND + "/api/scan/run", { method:'POST' });
-        const j = await r.json();
-        loadScanResults();
-      } catch(e) {
-        document.getElementById("scanResults").innerText = "Scan failed.";
-        console.error(e);
-      }
-    };
-
-    // Simulated buy (auto-sim endpoint)
-    async function simBuy(symbol, entry) {
-      try {
-        const body = { symbol, percent: 2 };
-        const r = await fetch(BACKEND + "/api/trade/auto-sim", { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-        const j = await r.json();
-        alert("Sim buy response: " + JSON.stringify(j));
-        loadWallet();
-      } catch(e){ alert("Sim buy failed"); console.error(e); }
-    }
-
-    // initial load + intervals
-    checkStatus();
-    loadTop10(); setInterval(loadTop10, 5000);
-    loadScanResults(); setInterval(loadScanResults, 60000);
-    loadWallet(); setInterval(loadWallet, 5000);
+    refreshAll();
+    setInterval(refreshAll, 20000); // auto-refresh every 20s
   </script>
 </body>
 </html>
