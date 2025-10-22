@@ -7,15 +7,30 @@
   <h2>BTC/USDT Live Price:</h2>
   <p id="price">Loading...</p>
 
-  <script>
-    async function getPrice() {
-      const res = await fetch("https://dexscan-backend.onrender.com/price?symbol=BTCUSDT");
-      const data = await res.json();
-      document.getElementById("price").innerText = data.price + " USDT";
-    }
+  <h3>ETH/USDT Live Price</h2>
+<div id="price">Connecting...</div>
 
-    getPrice();
-    setInterval(getPrice, 5000); // Update every 5 seconds
-  </script>
+<script>
+  const priceDiv = document.getElementById("price");
+
+  // Connect directly to Binance WebSocket
+  const ws = new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@trade");
+
+  ws.onmessage = (event) => {
+    const trade = JSON.parse(event.data);
+    const price = parseFloat(trade.p).toFixed(2);
+    priceDiv.textContent = `BTC/USDT: $${price}`;
+  };
+
+  ws.onopen = () => {
+    console.log("Connected to Binance WebSocket");
+  };
+
+  ws.onerror = (err) => {
+    console.error("WebSocket error:", err);
+  };
+</script>
+
 </body>
 </html>
+
