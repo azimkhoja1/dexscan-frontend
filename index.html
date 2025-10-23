@@ -15,7 +15,12 @@
     th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);text-align:left}
     .green{color:#4ade80}.red{color:#fb7185}
     .small{font-size:13px;color:#9fb0b9}
-    #logs{max-height:200px;overflow:auto;background:#071526;padding:8px;border-radius:6px}
+    #logs{max-height:220px;overflow:auto;background:#071526;padding:8px;border-radius:6px}
+    .muted{color:#7b8b95;font-size:13px}
+    .btn-small{padding:6px 8px;border-radius:6px;font-size:13px}
+    .info{font-size:13px;color:#9fb0b9;margin-top:8px}
+    .badge{background:#112233;padding:4px 6px;border-radius:6px;color:#9fb0b9;font-size:12px}
+    .indicator-list{font-size:12px;color:#cfe8e0}
   </style>
 </head>
 <body>
@@ -25,15 +30,15 @@
   </header>
 
   <div class="row">
-    <div class="card">
+    <div class="card" style="max-width:360px">
       <h3>Controls</h3>
       <div style="display:flex;gap:8px;margin-top:8px">
         <button id="deepScan">🔍 Deep Scan</button>
-        <button id="toggleAuto">⏱ Auto: OFF</button>
-        <button id="refreshAll">🔄 Refresh</button>
+        <button id="toggleAuto" class="btn-small">⏱ Auto: OFF</button>
+        <button id="refreshAll" class="btn-small">🔄 Refresh</button>
       </div>
-      <div style="margin-top:8px" class="small">Demo mode: controlled by backend env BITGET_DEMO. Do not enable live until tested.</div>
-      <div style="margin-top:8px" id="logs" class="small"></div>
+      <div class="info">Demo mode: controlled by backend env <code>BITGET_DEMO</code>. To switch to real trading set <strong>BITGET_DEMO=0</strong> in Render and provide live keys.</div>
+      <div id="logs" class="small"></div>
     </div>
 
     <div class="card">
@@ -47,9 +52,12 @@
     <div class="card">
       <h3>Scanner Results</h3>
       <table id="scan">
-        <thead><tr><th>Symbol</th><th>Score</th><th>Entry</th><th>TP</th><th>Action</th></tr></thead>
+        <thead>
+        <tr><th>Symbol</th><th>Score</th><th>Entry</th><th>TP</th><th>Reason</th><th>Action</th></tr>
+        </thead>
         <tbody></tbody>
       </table>
+      <div class="muted" style="margin-top:8px">Click Buy to place demo/live order. Click symbol to view indicator details.</div>
     </div>
 
     <div class="card">
@@ -60,6 +68,12 @@
       </div>
       <div id="tradelist" style="margin-top:8px"></div>
     </div>
+  </div>
+
+  <!-- simple modal for indicator details -->
+  <div id="modal" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#07121a;padding:16px;border-radius:8px;box-shadow:0 6px 30px rgba(0,0,0,0.6);min-width:340px;z-index:99">
+    <div id="modalContent"></div>
+    <div style="text-align:right;margin-top:8px"><button id="closeModal">Close</button></div>
   </div>
 
 <script>
@@ -92,9 +106,9 @@ async function loadTop10(){
   const arr = r.data;
   const tbody = document.querySelector("#top10 tbody");
   tbody.innerHTML = arr.map(a => `<tr>
-    <td>${a.symbol}</td>
+    <td><a href="#" onclick="return false">${a.symbol}</a></td>
     <td>${Number(a.price).toLocaleString()}</td>
-    <td class="${String(a.change24h).startsWith('-') ? 'red' : 'green'}">${a.change24h}%</td>
+    <td class="${String(a.change24h).startsWith('-') ? 'red' : 'green'}">${Number(a.change24h || 0).toFixed(2)}%</td>
     </tr>`).join("");
   log("Top10 refreshed");
 }
@@ -102,16 +116,17 @@ async function loadTop10(){
 async function loadScan() {
   const r = await safeFetch(API_BASE + "/scan/results");
   if (!r.ok) return;
-  const arr = r.data;
+  const arr = r.data || [];
   const tbody = document.querySelector("#scan tbody");
   tbody.innerHTML = (arr || []).map(s => `<tr>
-    <td>${s.symbol}</td>
+    <td><a href="#" onclick="showIndicators('${s.symbol}')">${s.symbol}</a></td>
     <td>${s.score}</td>
     <td>${Number(s.entry).toFixed(6)}</td>
     <td>${Number(s.tp).toFixed(6)}</td>
+    <td>${(s.reasons || []).slice(0,2).join(", ")}</td>
     <td><button onclick="manualBuy('${s.symbol}')">Buy</button></td>
   </tr>`).join("");
-  log("Scan results loaded");
+  log("Scan results loaded: " + arr.length);
 }
 
 async function manualBuy(symbol){
@@ -120,35 +135,79 @@ async function manualBuy(symbol){
     const body = { symbol, side: "buy" };
     const r = await safeFetch(API_BASE + "/bitget/order", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) });
     if (r.ok) {
-      log("Manual buy success: " + JSON.stringify(r.data));
+      log("Manual buy success: " + JSON.stringify(r.data.trade));
       loadTrades(); loadBalance();
+      loadScan();
     } else log("Manual buy failed");
   } catch(e){ log("Buy error: " + e.message); }
+}
+
+async function closeTrade(tradeId){
+  try {
+    if(!confirm("Close (sell) trade " + tradeId + " ?")) return;
+    const r = await safeFetch(API_BASE + "/trade/close", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ trade_id: tradeId }) });
+    if (r.ok) {
+      log("Trade closed: " + tradeId);
+      loadTrades(); loadBalance();
+    } else log("Close failed");
+  } catch(e){ log("Close error: " + e.message); }
 }
 
 async function loadTrades(){
   const r = await safeFetch(API_BASE + "/trades");
   if (!r.ok) return;
-  const arr = r.data;
+  const arr = r.data || [];
   const node = document.getElementById("tradelist");
   if(!arr || arr.length===0){ node.innerHTML = "No trades"; return; }
-  node.innerHTML = arr.slice().reverse().map(t => `<div style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.03)">
-    ${t.id} | ${t.symbol} | ${t.side} | qty:${t.qty} | price:${t.price} | ${t.placed_at}</div>`).join("");
+  node.innerHTML = arr.slice().reverse().map(t => {
+    if (t.status === "OPEN") {
+      return `<div style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.03)">
+        <strong>${t.symbol}</strong> | ${t.side} | qty:${t.qty} | entry:${t.entry_price} | invested:${t.invested} | buy_fee:${t.buy_fee}
+        <div>latest:${t.latest_price || 'n/a'} | est_net:${t.est_net || 'n/a'} | unreal_pnl:${t.unreal_pnl || 0}</div>
+        <div style="margin-top:6px"><button onclick="closeTrade('${t.id}')">Close (Sell)</button></div>
+      </div>`;
+    } else {
+      return `<div style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.03)"><strong>${t.symbol}</strong> | ${t.side} | status:${t.status} | pnl:${t.pnl || 0} | invested:${t.invested} | closed:${t.closed_at}</div>`;
+    }
+  }).join("");
 }
 
 async function loadBalance(){
   const r = await safeFetch(API_BASE + "/bitget/balance");
   if (!r.ok) return;
-  const j = r.data;
-  const b = j["USDT"] || j["usdt"] || (j.data && j.data.USDT) || "n/a";
+  const j = r.data || {};
+  const b = j["USDT"] || j["usdt"] || "n/a";
   document.getElementById("balance").innerText = "USDT Balance: " + b;
 }
 
+// indicator modal
+async function showIndicators(symbol) {
+  // find symbol in scan results
+  const res = await safeFetch(API_BASE + "/scan/results");
+  if (!res.ok) return;
+  const s = (res.data || []).find(x => x.symbol === symbol);
+  if (!s) { alert("No indicator snapshot found for " + symbol); return; }
+  const content = [];
+  content.push(`<h3>${symbol} — score ${s.score}</h3>`);
+  content.push(`<div class="indicator-list"><b>Entry:</b> ${s.entry} &nbsp; <b>TP:</b> ${s.tp}</div>`);
+  content.push(`<div class="indicator-list"><b>Reasons:</b> ${(s.reasons || []).join(", ")}</div>`);
+  content.push("<hr>");
+  content.push("<div class='indicator-list'><pre>" + JSON.stringify(s.indicators, null, 2) + "</pre></div>");
+  document.getElementById("modalContent").innerHTML = content.join("");
+  document.getElementById("modal").style.display = "block";
+}
+
+document.getElementById("closeModal").addEventListener("click", () => {
+  document.getElementById("modal").style.display = "none";
+});
+
+// controls
 document.getElementById("deepScan").addEventListener("click", async () => {
   log("Triggering deep scan (may take 1-2 minutes)...");
   const r = await safeFetch(API_BASE + "/scan/run", { method: "POST" });
   if (r.ok) { log("Deep scan complete: " + (r.data.length || 0) + " results"); loadScan(); }
 });
+
 let autoOn = false;
 document.getElementById("toggleAuto").addEventListener("click", async () => {
   autoOn = !autoOn;
@@ -156,16 +215,15 @@ document.getElementById("toggleAuto").addEventListener("click", async () => {
   await safeFetch(API_BASE + "/auto/set", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ enabled: autoOn }) });
   log("Auto set: " + autoOn);
 });
+
 document.getElementById("refreshAll").addEventListener("click", () => { loadTop10(); loadScan(); loadBalance(); loadTrades(); });
 document.getElementById("showTrades").addEventListener("click", () => loadTrades());
 
-// initial
-loadTop10();
-loadScan();
-loadBalance();
-loadTrades();
-setInterval(loadTop10, 60000); // 60s
+// auto refresh
+loadTop10(); loadScan(); loadBalance(); loadTrades();
+setInterval(loadTop10, 60000);
 setInterval(loadScan, 60000);
+setInterval(loadTrades, 30000);
 </script>
 </body>
 </html>
