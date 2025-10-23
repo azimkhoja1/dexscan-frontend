@@ -54,7 +54,7 @@
 
 <header>
   <div style="display:flex;align-items:center;gap:16px">
-    <h1>DexScan — Bitget UX</h1>
+    <h1>DexScan — Bitget UI</h1>
     <div class="top-live">
       <div class="live-item">BTC <span id="btcTop">—</span></div>
       <div class="live-item">ETH <span id="ethTop">—</span></div>
@@ -65,7 +65,6 @@
 </header>
 
 <div class="container">
-  <!-- LEFT CONTROLS -->
   <div class="left">
     <div class="card controls">
       <h3>Controls</h3>
@@ -76,14 +75,13 @@
         <button id="openSettings" class="secondary">⚙️ Settings</button>
       </div>
       <div class="small muted" style="margin-top:10px">
-        Demo mode controlled by backend. Live trading requires BITGET_DEMO=0 and live keys.
+        Demo mode: controlled by backend env BITGET_DEMO. Set BITGET_DEMO=0 for live.
       </div>
 
       <div id="logs" class="small"></div>
     </div>
   </div>
 
-  <!-- MAIN -->
   <div class="main">
     <div class="card table-wrap">
       <h3 style="margin:0 0 6px 0">Scanner / Active Positions</h3>
@@ -93,11 +91,10 @@
             <th>NAME</th><th>STATUS</th><th>ENTRY</th><th>PRICE</th><th>P&L</th><th>SELL SIGNAL</th><th>VALUE</th><th>ACTIONS</th>
           </tr>
         </thead>
-        <tbody id="tableBody">
-          <!-- rows injected -->
-        </tbody>
+        <tbody id="tableBody"></tbody>
       </table>
     </div>
+
     <div style="display:flex;gap:12px">
       <div class="card" style="flex:1">
         <h4>Scanner Results (signals)</h4>
@@ -108,13 +105,13 @@
         <div style="display:flex;flex-direction:column;gap:8px">
           <button id="buyAllBtn">Auto Buy Top N</button>
           <button id="sellAllBtn" class="secondary">Close All (Sell)</button>
-          <div class="muted small">Auto Buy respects settings (Invest / Count / TP). Use with care.</div>
+          <div class="muted small">Auto Buy respects settings. Use demo mode first.</div>
         </div>
       </div>
     </div>
+
   </div>
 
-  <!-- RIGHT -->
   <div class="right">
     <div class="card">
       <h4>Trades & Wallet</h4>
@@ -127,10 +124,8 @@
   </div>
 </div>
 
-<!-- tooltip -->
 <div id="tooltip" class="tooltip"></div>
 
-<!-- settings panel -->
 <div id="settingsPanel" class="settings-panel">
   <h3>Settings</h3>
   <div class="settings-row">
@@ -151,11 +146,9 @@
 </div>
 
 <script>
-/* ---------- CONFIG ---------- */
 const API_BASE = "https://dexscan-backend.onrender.com/api";
 const tooltip = document.getElementById("tooltip");
 
-/* ---------- UTIL ---------- */
 function log(msg){
   const node = document.getElementById("logs");
   node.innerHTML = new Date().toLocaleTimeString() + " — " + msg + "<br>" + node.innerHTML;
@@ -177,72 +170,39 @@ async function sfetch(path, opts = {}) {
   }
 }
 
-/* ---------- LIVE TOP PAIR WS (frontend) ---------- */
 function wsPair(sym, elId){
   try {
     const s = sym.toLowerCase();
     const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${s}@trade`);
     ws.onmessage = ev => {
-      try {
-        const d = JSON.parse(ev.data);
-        document.getElementById(elId).innerText = Number(d.p).toLocaleString();
-      } catch(e){}
+      try { const d = JSON.parse(ev.data); document.getElementById(elId).innerText = Number(d.p).toLocaleString(); } catch(e){}
     };
     ws.onopen = () => console.log("WS ok", sym);
   } catch(e){console.warn(e)}
 }
-wsPair("BTCUSDT","btcTop");
-wsPair("ETHUSDT","ethTop");
-wsPair("BNBUSDT","bnbTop");
-
-/* ---------- UI: show rows ---------- */
+wsPair("BTCUSDT","btcTop"); wsPair("ETHUSDT","ethTop"); wsPair("BNBUSDT","bnbTop");
 
 async function renderTable(){
-  // Read current trades
   const tresp = await sfetch("/trades");
   const trades = (tresp.ok && Array.isArray(tresp.data)) ? tresp.data : [];
-  // Read scan results
   const sresp = await sfetch("/scan/results");
   const signals = (sresp.ok && Array.isArray(sresp.data)) ? sresp.data : [];
-  // Build rows: first active trades, then signals not in trades
   const openSymbols = (trades||[]).filter(t=>t.status==="OPEN").map(t=>t.symbol);
   const rows = [];
-  // Active trades rows
-  for (const t of trades.filter(x=>x.status==="OPEN")){
-    rows.push({
-      name: t.symbol,
-      status: "active",
-      entry: t.entry_price || t.entry || "-",
-      price: t.latest_price || "-",
-      pnl: t.unreal_pnl ?? t.pnl ?? 0,
-      signal: "HOLD",
-      value: t.invested || 0,
-      trade: t
-    });
+  for (const t of trades.filter(x=>x.status==="OPEN")) {
+    rows.push({ name: t.symbol, status:"active", entry: t.entry_price || t.entry || "-", price: t.latest_price || "-", pnl: t.unreal_pnl ?? t.pnl ?? 0, signal: "HOLD", value: t.invested || 0, trade: t });
   }
-  // signals rows (up to 10) (skip if already bought open)
-  for (const s of signals.slice(0, 10)) {
+  for (const s of signals.slice(0,10)) {
     if (openSymbols.includes(s.symbol)) continue;
-    rows.push({
-      name: s.symbol,
-      status: "signal",
-      entry: s.entry,
-      price: s.entry,
-      pnl: 0,
-      signal: (s.reasons && s.reasons.length) ? s.reasons.join("; ") : "signal",
-      value: 0,
-      signalObj: s
-    });
+    rows.push({ name: s.symbol, status:"signal", entry: s.entry, price: s.entry, pnl: 0, signal: (s.reasons && s.reasons.length) ? s.reasons.join("; ") : "signal", value:0, signalObj: s });
   }
 
-  // render
   const tbody = document.getElementById("tableBody");
   tbody.innerHTML = rows.map(r => {
     const pnlClass = (r.pnl>0) ? 'green' : (r.pnl<0 ? 'red' : '');
-    const actions = r.trade ? 
+    const actions = r.trade ?
       `<div class="actions-col"><label class="toggle"><input type="checkbox" data-trade="${r.trade.id}" class="autosell-toggle" ${r.trade.autoSell ? 'checked': ''}></label><button class="sell-now" data-sell="${r.trade.id}">Sell Now</button></div>`
       : `<div class="actions-col"><button class="buy-now" data-symbol="${r.name}">Buy</button></div>`;
-    // value formatting
     return `<tr class="hoverable" data-symbol="${r.name}">
       <td><div class="name-col"><div class="symbol" data-symbol="${r.name}">${r.name}</div></div></td>
       <td>${r.status === "active" ? '<span class="status-pill">active</span>' : '<span class="badge">signal</span>'}</td>
@@ -255,34 +215,29 @@ async function renderTable(){
     </tr>`;
   }).join("");
   attachRowListeners();
-  // also populate signals list small panel
   document.getElementById("signalsList").innerText = signals.length ? signals.map(s=>s.symbol+" ("+s.score+")").join(", ") : "No signals";
 }
 
-/* ---------- attach events on rows ---------- */
 function attachRowListeners(){
-  // buy buttons
   document.querySelectorAll(".buy-now").forEach(btn=>{
-    btn.onclick = async (e) => {
+    btn.onclick = async () => {
       const sym = btn.dataset.symbol;
       if (!confirm("Place demo BUY on " + sym + " ?")) return;
       log("Placing buy " + sym);
       const res = await sfetch("/bitget/order", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ symbol: sym, side: "buy" })});
-      if (res.ok) { log("Buy order placed"); await renderTable(); await loadTrades(); await loadBalance(); }
+      if (res.ok) { log("Buy placed"); await renderTable(); await loadTrades(); await loadBalance(); }
       else alert("Buy failed: " + (res.text || res.error || JSON.stringify(res.data)));
     };
   });
-  // sell now buttons
   document.querySelectorAll(".sell-now").forEach(btn=>{
     btn.onclick = async () => {
       const id = btn.dataset.sell;
       if (!confirm("Sell trade " + id + " now?")) return;
       const res = await sfetch("/trade/close", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ trade_id: id })});
       if (res.ok) { log("Sold: " + id); await renderTable(); await loadTrades(); await loadBalance(); }
-      else alert("Sell failed: " + (res.text || res.error));
+      else alert("Close failed: " + (res.text || res.error));
     };
   });
-  // autosell toggles
   document.querySelectorAll(".autosell-toggle").forEach(input=>{
     input.onchange = async () => {
       const id = input.dataset.trade;
@@ -292,29 +247,23 @@ function attachRowListeners(){
       else { log("AutoSell toggle failed"); input.checked = !val; }
     };
   });
-  // hover tooltip on symbol: show reasons by fetching /scan/results and match symbol
   document.querySelectorAll(".symbol").forEach(el=>{
-    el.onmouseenter = async (ev) => {
+    el.onmouseenter = async () => {
       const sym = el.dataset.symbol;
-      // fetch scan results to get reasons
       const res = await sfetch("/scan/results");
       if (!res.ok) return;
       const s = (res.data||[]).find(x => x.symbol === sym) || null;
       let html = `<strong>${sym}</strong><br/>`;
-      if (s) {
-        html += `Score: ${s.score}<br/>Reasons: ${(s.reasons || []).slice(0,4).join(", ")}<br/>Entry: ${s.entry}<br/>TP: ${s.tp}`;
-      } else html += "No detailed reason (maybe already bought or not scanned)";
-      tooltip.innerHTML = html;
-      tooltip.style.display = "block";
+      if (s) html += `Score: ${s.score}<br/>Reasons: ${(s.reasons||[]).slice(0,4).join(", ")}<br/>Entry: ${s.entry}<br/>TP: ${s.tp}`;
+      else html += "No detailed reason";
+      tooltip.innerHTML = html; tooltip.style.display = "block";
       const r = el.getBoundingClientRect();
-      tooltip.style.left = (r.right + 12) + "px";
-      tooltip.style.top = (r.top) + "px";
+      tooltip.style.left = (r.right + 12) + "px"; tooltip.style.top = (r.top) + "px";
     };
     el.onmouseleave = () => { tooltip.style.display = "none"; tooltip.innerHTML = ""; };
   });
 }
 
-/* ---------- Trades list and balance ---------- */
 async function loadTrades(){
   const r = await sfetch("/trades");
   if (!r.ok) { document.getElementById("tradesDiv").innerText = "No trades"; return; }
@@ -333,10 +282,8 @@ async function loadBalance(){
   document.getElementById("balanceTop").innerText = "USDT: " + (val ?? "n/a");
 }
 
-/* ---------- SETTINGS panel ---------- */
 const panel = document.getElementById("settingsPanel");
 document.getElementById("openSettings").onclick = async () => {
-  // load server settings
   const r = await sfetch("/settings");
   if (r.ok) {
     const s = r.data || {};
@@ -360,15 +307,10 @@ document.getElementById("saveSettings").onclick = async () => {
   if (res.ok) { log("Settings saved"); panel.classList.remove("open"); }
   else alert("Failed save");
 };
+document.addEventListener("click", function(e){ if (!panel.contains(e.target) && !document.getElementById("openSettings").contains(e.target)) panel.classList.remove("open"); });
 
-/* CLICK OUTSIDE TO CLOSE PANEL */
-document.addEventListener("click", function(e){
-  if (!panel.contains(e.target) && !document.getElementById("openSettings").contains(e.target)) panel.classList.remove("open");
-});
-
-/* ---------- Extra actions ---------- */
 document.getElementById("deepScan").onclick = async () => {
-  log("Trigger deep scan...");
+  log("Triggering deep scan...");
   const r = await sfetch("/scan/run", { method:"POST" });
   if (r.ok) log("Scan finished: " + (r.data?.length||0));
   await renderTable();
@@ -377,7 +319,6 @@ document.getElementById("refreshBtn").onclick = async () => { await renderTable(
 document.getElementById("showTrades").onclick = loadTrades;
 document.getElementById("buyAllBtn").onclick = async () => {
   if (!confirm("Auto-buy top N signals?")) return;
-  // call backend /auto/set true -> worker will buy; or we can loop and call /bitget/order for top signals
   const r = await sfetch("/auto/set", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ enabled:true })});
   if (r.ok) document.getElementById("autoToggle").innerText = "⏱ Auto: ON";
   log("Auto buy started by worker");
@@ -393,8 +334,6 @@ document.getElementById("sellAllBtn").onclick = async () => {
   }
   await loadTrades(); await renderTable();
 };
-
-/* ---------- auto toggle button ---------- */
 document.getElementById("autoToggle").onclick = async () => {
   const cur = document.getElementById("autoToggle").innerText.includes("ON");
   const enable = !cur;
@@ -404,16 +343,12 @@ document.getElementById("autoToggle").onclick = async () => {
     log("Auto toggled: " + enable);
   } else log("Auto toggle failed");
 };
-
-/* ---------- toggle backend status ---------- */
 async function updateBackendStatus(){
   const r = await sfetch("/");
   const st = document.getElementById("backendStatus");
   if (r.ok) st.innerText = "Backend connected";
   else st.innerText = "Backend not reachable";
 }
-
-/* ---------- init ---------- */
 (async function init(){
   await updateBackendStatus();
   await renderTable();
