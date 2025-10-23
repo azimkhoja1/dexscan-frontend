@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>DexScan — Bitget Dashboard</title>
+  <title>DexScan — Bitget Dashboard (Fixed UI)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
     body{background:#071020;color:#e6f0f0;font-family:Inter,Arial,Helvetica,sans-serif;margin:0;padding:18px}
@@ -19,8 +19,11 @@
     .muted{color:#7b8b95;font-size:13px}
     .btn-small{padding:6px 8px;border-radius:6px;font-size:13px}
     .info{font-size:13px;color:#9fb0b9;margin-top:8px}
-    .badge{background:#112233;padding:4px 6px;border-radius:6px;color:#9fb0b9;font-size:12px}
     .indicator-list{font-size:12px;color:#cfe8e0}
+    a.symbol-link{color:#8fe7d1;text-decoration:none;cursor:pointer}
+    a.symbol-link:hover{text-decoration:underline}
+    .buy-btn{background:#117a65}
+    .close-btn{background:#b02a37}
   </style>
 </head>
 <body>
@@ -57,7 +60,7 @@
         </thead>
         <tbody></tbody>
       </table>
-      <div class="muted" style="margin-top:8px">Click Buy to place demo/live order. Click symbol to view indicator details.</div>
+      <div class="muted" style="margin-top:8px">Click <strong>symbol</strong> to view indicator details. Click <strong>Buy</strong> to place demo/live order.</div>
     </div>
 
     <div class="card">
@@ -70,8 +73,8 @@
     </div>
   </div>
 
-  <!-- simple modal for indicator details -->
-  <div id="modal" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#07121a;padding:16px;border-radius:8px;box-shadow:0 6px 30px rgba(0,0,0,0.6);min-width:340px;z-index:99">
+  <!-- modal for indicator details -->
+  <div id="modal" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#07121a;padding:16px;border-radius:8px;box-shadow:0 6px 30px rgba(0,0,0,0.6);min-width:380px;z-index:9999">
     <div id="modalContent"></div>
     <div style="text-align:right;margin-top:8px"><button id="closeModal">Close</button></div>
   </div>
@@ -79,11 +82,14 @@
 <script>
 const API_BASE = "https://dexscan-backend.onrender.com/api";
 
+// logging helper
 function log(msg){
   const node = document.getElementById("logs");
   node.innerHTML = new Date().toLocaleTimeString() + " — " + msg + "<br>" + node.innerHTML;
+  console.log(msg);
 }
 
+// safe fetch
 async function safeFetch(url, opts = {}) {
   try {
     const r = await fetch(url, opts);
@@ -100,71 +106,84 @@ async function safeFetch(url, opts = {}) {
   }
 }
 
+// render top10
 async function loadTop10(){
   const r = await safeFetch(API_BASE + "/top10");
   if (!r.ok) return;
-  const arr = r.data;
+  const arr = r.data || [];
   const tbody = document.querySelector("#top10 tbody");
   tbody.innerHTML = arr.map(a => `<tr>
-    <td><a href="#" onclick="return false">${a.symbol}</a></td>
+    <td><a class="symbol-link" data-symbol="${a.symbol}">${a.symbol}</a></td>
     <td>${Number(a.price).toLocaleString()}</td>
     <td class="${String(a.change24h).startsWith('-') ? 'red' : 'green'}">${Number(a.change24h || 0).toFixed(2)}%</td>
     </tr>`).join("");
   log("Top10 refreshed");
 }
 
+// render scan results (with data- attributes for event delegation)
 async function loadScan() {
   const r = await safeFetch(API_BASE + "/scan/results");
   if (!r.ok) return;
   const arr = r.data || [];
   const tbody = document.querySelector("#scan tbody");
-  tbody.innerHTML = (arr || []).map(s => `<tr>
-    <td><a href="#" onclick="showIndicators('${s.symbol}')">${s.symbol}</a></td>
-    <td>${s.score}</td>
-    <td>${Number(s.entry).toFixed(6)}</td>
-    <td>${Number(s.tp).toFixed(6)}</td>
-    <td>${(s.reasons || []).slice(0,2).join(", ")}</td>
-    <td><button onclick="manualBuy('${s.symbol}')">Buy</button></td>
-  </tr>`).join("");
+  tbody.innerHTML = (arr || []).map(s => {
+    const reasonShort = (s.reasons && s.reasons.length) ? s.reasons.slice(0,2).join(", ") : (s.reason || "—");
+    return `<tr data-symbol="${s.symbol}" data-score="${s.score}">
+      <td><a class="symbol-link" data-symbol="${s.symbol}">${s.symbol}</a></td>
+      <td>${s.score ?? "-"}</td>
+      <td>${s.entry ? Number(s.entry).toFixed(6) : "-"}</td>
+      <td>${s.tp ? Number(s.tp).toFixed(6) : "-"}</td>
+      <td>${reasonShort}</td>
+      <td><button class="buy-btn btn-small" data-symbol="${s.symbol}">Buy</button></td>
+    </tr>`;
+  }).join("");
   log("Scan results loaded: " + arr.length);
 }
 
+// manual buy action
 async function manualBuy(symbol){
   try {
     if(!confirm("Place manual BUY on " + symbol + " ?")) return;
     const body = { symbol, side: "buy" };
     const r = await safeFetch(API_BASE + "/bitget/order", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) });
     if (r.ok) {
-      log("Manual buy success: " + JSON.stringify(r.data.trade));
-      loadTrades(); loadBalance();
-      loadScan();
-    } else log("Manual buy failed");
-  } catch(e){ log("Buy error: " + e.message); }
+      log("Manual buy placed: " + r.data.trade?.id || JSON.stringify(r.data));
+      loadTrades(); loadBalance(); loadScan();
+    } else {
+      log("Manual buy failed: " + (r.text || r.error || "unknown"));
+      alert("Buy failed: " + (r.text || r.error || "see logs"));
+    }
+  } catch(e){ log("Buy error: " + e.message); alert("Buy error: "+e.message); }
 }
 
+// close trade (sell)
 async function closeTrade(tradeId){
   try {
     if(!confirm("Close (sell) trade " + tradeId + " ?")) return;
     const r = await safeFetch(API_BASE + "/trade/close", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ trade_id: tradeId }) });
     if (r.ok) {
       log("Trade closed: " + tradeId);
-      loadTrades(); loadBalance();
-    } else log("Close failed");
-  } catch(e){ log("Close error: " + e.message); }
+      loadTrades(); loadBalance(); loadScan();
+    } else {
+      log("Close failed: " + (r.text || r.error || "unknown"));
+      alert("Close failed: " + (r.text || r.error || "see logs"));
+    }
+  } catch(e){ log("Close error: " + e.message); alert("Close error: "+e.message); }
 }
 
+// load trades list
 async function loadTrades(){
   const r = await safeFetch(API_BASE + "/trades");
   if (!r.ok) return;
   const arr = r.data || [];
   const node = document.getElementById("tradelist");
-  if(!arr || arr.length===0){ node.innerHTML = "No trades"; return; }
+  if(!arr || arr.length === 0){ node.innerHTML = "No trades"; return; }
   node.innerHTML = arr.slice().reverse().map(t => {
     if (t.status === "OPEN") {
       return `<div style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.03)">
-        <strong>${t.symbol}</strong> | ${t.side} | qty:${t.qty} | entry:${t.entry_price} | invested:${t.invested} | buy_fee:${t.buy_fee}
-        <div>latest:${t.latest_price || 'n/a'} | est_net:${t.est_net || 'n/a'} | unreal_pnl:${t.unreal_pnl || 0}</div>
-        <div style="margin-top:6px"><button onclick="closeTrade('${t.id}')">Close (Sell)</button></div>
+        <strong>${t.symbol}</strong> | ${t.side} | qty:${t.qty} | entry:${t.entry_price || t.entry_price || '-'} | invested:${t.invested || '-'} | buy_fee:${t.buy_fee || '-'}
+        <div>latest:${t.latest_price || 'n/a'} | est_net:${t.est_net || 'n/a'} | unreal_pnl:${t.unreal_pnl ?? 0}</div>
+        <div style="margin-top:6px"><button class="close-btn btn-small" data-trade="${t.id}">Close (Sell)</button></div>
       </div>`;
     } else {
       return `<div style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.03)"><strong>${t.symbol}</strong> | ${t.side} | status:${t.status} | pnl:${t.pnl || 0} | invested:${t.invested} | closed:${t.closed_at}</div>`;
@@ -172,42 +191,68 @@ async function loadTrades(){
   }).join("");
 }
 
+// load balance
 async function loadBalance(){
   const r = await safeFetch(API_BASE + "/bitget/balance");
-  if (!r.ok) return;
+  if (!r.ok) { document.getElementById("balance").innerText = "Balance: n/a"; return; }
   const j = r.data || {};
   const b = j["USDT"] || j["usdt"] || "n/a";
   document.getElementById("balance").innerText = "USDT Balance: " + b;
 }
 
-// indicator modal
+// show indicator modal for a symbol (reads scan/results)
 async function showIndicators(symbol) {
-  // find symbol in scan results
-  const res = await safeFetch(API_BASE + "/scan/results");
-  if (!res.ok) return;
-  const s = (res.data || []).find(x => x.symbol === symbol);
-  if (!s) { alert("No indicator snapshot found for " + symbol); return; }
-  const content = [];
-  content.push(`<h3>${symbol} — score ${s.score}</h3>`);
-  content.push(`<div class="indicator-list"><b>Entry:</b> ${s.entry} &nbsp; <b>TP:</b> ${s.tp}</div>`);
-  content.push(`<div class="indicator-list"><b>Reasons:</b> ${(s.reasons || []).join(", ")}</div>`);
-  content.push("<hr>");
-  content.push("<div class='indicator-list'><pre>" + JSON.stringify(s.indicators, null, 2) + "</pre></div>");
-  document.getElementById("modalContent").innerHTML = content.join("");
-  document.getElementById("modal").style.display = "block";
+  try {
+    const res = await safeFetch(API_BASE + "/scan/results");
+    if (!res.ok) return alert("Cannot fetch scan results");
+    const s = (res.data || []).find(x => x.symbol === symbol);
+    if (!s) return alert("No indicator snapshot found for " + symbol);
+    const content = [];
+    content.push(`<h3 style="margin:0">${symbol} — score ${s.score ?? "-"}</h3>`);
+    content.push(`<div class="indicator-list"><b>Entry:</b> ${s.entry ?? "-"} &nbsp; <b>TP:</b> ${s.tp ?? "-"}</div>`);
+    content.push(`<div class="indicator-list"><b>Reasons:</b> ${(s.reasons && s.reasons.length) ? s.reasons.join(", ") : (s.reason || "—")}</div>`);
+    content.push("<hr>");
+    content.push("<div class='indicator-list'><pre style='white-space:pre-wrap;'>" + JSON.stringify(s.indicators || {}, null, 2) + "</pre></div>");
+    document.getElementById("modalContent").innerHTML = content.join("");
+    document.getElementById("modal").style.display = "block";
+  } catch(e){ log("showIndicators error: "+e.message); alert("Error: "+e.message); }
 }
 
+// event listeners (delegation) for dynamic elements
+document.addEventListener("click", (ev) => {
+  const t = ev.target;
+  // symbol links (top10/scan)
+  if (t.matches("a.symbol-link")) {
+    const symbol = t.dataset.symbol;
+    showIndicators(symbol);
+    ev.preventDefault();
+    return;
+  }
+  // buy buttons
+  if (t.matches("button.buy-btn")) {
+    const symbol = t.dataset.symbol;
+    manualBuy(symbol);
+    return;
+  }
+  // close buttons
+  if (t.matches("button.close-btn")) {
+    const tradeId = t.dataset.trade;
+    closeTrade(tradeId);
+    return;
+  }
+});
+
+// modal close
 document.getElementById("closeModal").addEventListener("click", () => {
   document.getElementById("modal").style.display = "none";
 });
 
-// controls
+// Controls
 document.getElementById("deepScan").addEventListener("click", async () => {
   log("Triggering deep scan (may take 1-2 minutes)...");
   const r = await safeFetch(API_BASE + "/scan/run", { method: "POST" });
   if (r.ok) { log("Deep scan complete: " + (r.data.length || 0) + " results"); loadScan(); }
 });
-
 let autoOn = false;
 document.getElementById("toggleAuto").addEventListener("click", async () => {
   autoOn = !autoOn;
@@ -215,15 +260,15 @@ document.getElementById("toggleAuto").addEventListener("click", async () => {
   await safeFetch(API_BASE + "/auto/set", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ enabled: autoOn }) });
   log("Auto set: " + autoOn);
 });
-
 document.getElementById("refreshAll").addEventListener("click", () => { loadTop10(); loadScan(); loadBalance(); loadTrades(); });
 document.getElementById("showTrades").addEventListener("click", () => loadTrades());
 
-// auto refresh
+// initial load & intervals
 loadTop10(); loadScan(); loadBalance(); loadTrades();
 setInterval(loadTop10, 60000);
 setInterval(loadScan, 60000);
 setInterval(loadTrades, 30000);
 </script>
+
 </body>
 </html>
