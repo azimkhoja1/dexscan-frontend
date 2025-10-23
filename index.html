@@ -63,14 +63,13 @@
   </div>
 
 <script>
-const API_BASE = "https://dexscan-backend.onrender.com/api"; // <<-- use backend URL
+const API_BASE = "https://dexscan-backend.onrender.com/api";
 
 function log(msg){
   const node = document.getElementById("logs");
   node.innerHTML = new Date().toLocaleTimeString() + " — " + msg + "<br>" + node.innerHTML;
 }
 
-// safer fetch helper
 async function safeFetch(url, opts = {}) {
   try {
     const r = await fetch(url, opts);
@@ -145,7 +144,6 @@ async function loadBalance(){
   document.getElementById("balance").innerText = "USDT Balance: " + b;
 }
 
-// controls
 document.getElementById("deepScan").addEventListener("click", async () => {
   log("Triggering deep scan (may take 1-2 minutes)...");
   const r = await safeFetch(API_BASE + "/scan/run", { method: "POST" });
@@ -166,7 +164,7 @@ loadTop10();
 loadScan();
 loadBalance();
 loadTrades();
-setInterval(loadTop10, 30000);
+setInterval(loadTop10, 60000); // 60s
 setInterval(loadScan, 60000);
 </script>
 </body>
