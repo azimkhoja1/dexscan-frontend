@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>DexScan - Bitget Dashboard</title>
+  <title>DexScan — Bitget Dashboard</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
     body{background:#071020;color:#e6f0f0;font-family:Inter,Arial,Helvetica,sans-serif;margin:0;padding:18px}
@@ -63,122 +63,111 @@
   </div>
 
 <script>
-const API_BASE = 'https://dexscan-backend.onrender.com/api';
+const API_BASE = "https://dexscan-backend.onrender.com/api"; // <<-- use backend URL
 
 function log(msg){
   const node = document.getElementById("logs");
   node.innerHTML = new Date().toLocaleTimeString() + " — " + msg + "<br>" + node.innerHTML;
 }
 
-// load top10
+// safer fetch helper
+async function safeFetch(url, opts = {}) {
+  try {
+    const r = await fetch(url, opts);
+    if (!r.ok) {
+      const txt = await r.text();
+      log(`HTTP ${r.status} ${url} — ${txt}`);
+      return { ok:false, status: r.status, text: txt };
+    }
+    const j = await r.json();
+    return { ok:true, data: j };
+  } catch (e) {
+    log("Fetch error: " + e.message);
+    return { ok:false, error: e.message };
+  }
+}
+
 async function loadTop10(){
-  try {
-    const r = await fetch(API_BASE + "/top10");
-    const arr = await r.json();
-    const tbody = document.querySelector("#top10 tbody");
-    tbody.innerHTML = arr.map(a => `<tr>
-      <td>${a.symbol}</td>
-      <td>${Number(a.price).toLocaleString()}</td>
-      <td class="${String(a.change24h).startsWith('-') ? 'red' : 'green'}">${a.change24h}%</td>
-      </tr>`).join("");
-    log("Top10 refreshed");
-  } catch(e){ log("Top10 load error"); }
-}
-
-// load scan
-async function loadScan() {
-  try {
-    const r = await fetch(API_BASE + "/scan/results");
-    const arr = await r.json();
-    const tbody = document.querySelector("#scan tbody");
-    tbody.innerHTML = (arr || []).map(s => `<tr>
-      <td>${s.symbol}</td>
-      <td>${s.score}</td>
-      <td>${Number(s.entry).toFixed(6)}</td>
-      <td>${Number(s.tp).toFixed(6)}</td>
-      <td>
-        <button onclick="manualBuy('${s.symbol}')">Buy</button>
-      </td>
+  const r = await safeFetch(API_BASE + "/top10");
+  if (!r.ok) return;
+  const arr = r.data;
+  const tbody = document.querySelector("#top10 tbody");
+  tbody.innerHTML = arr.map(a => `<tr>
+    <td>${a.symbol}</td>
+    <td>${Number(a.price).toLocaleString()}</td>
+    <td class="${String(a.change24h).startsWith('-') ? 'red' : 'green'}">${a.change24h}%</td>
     </tr>`).join("");
-    log("Scan results loaded");
-  } catch(e){ log("Scan load error"); }
+  log("Top10 refreshed");
 }
 
-// manual buy
+async function loadScan() {
+  const r = await safeFetch(API_BASE + "/scan/results");
+  if (!r.ok) return;
+  const arr = r.data;
+  const tbody = document.querySelector("#scan tbody");
+  tbody.innerHTML = (arr || []).map(s => `<tr>
+    <td>${s.symbol}</td>
+    <td>${s.score}</td>
+    <td>${Number(s.entry).toFixed(6)}</td>
+    <td>${Number(s.tp).toFixed(6)}</td>
+    <td><button onclick="manualBuy('${s.symbol}')">Buy</button></td>
+  </tr>`).join("");
+  log("Scan results loaded");
+}
+
 async function manualBuy(symbol){
   try {
     if(!confirm("Place manual BUY on " + symbol + " ?")) return;
-    const body = { symbol, side: "buy" }; // percent uses default PERCENT_PER_TRADE
-    const r = await fetch(API_BASE + "/bitget/order", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
-    const j = await r.json();
-    log("Manual buy response: " + JSON.stringify(j));
-    loadTrades();
-    loadBalance();
+    const body = { symbol, side: "buy" };
+    const r = await safeFetch(API_BASE + "/bitget/order", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) });
+    if (r.ok) {
+      log("Manual buy success: " + JSON.stringify(r.data));
+      loadTrades(); loadBalance();
+    } else log("Manual buy failed");
   } catch(e){ log("Buy error: " + e.message); }
 }
 
-// load trades
 async function loadTrades(){
-  try {
-    const r = await fetch(API_BASE + "/trades");
-    const arr = await r.json();
-    const node = document.getElementById("tradelist");
-    if(!arr || arr.length===0){ node.innerHTML = "No trades"; return; }
-    node.innerHTML = arr.slice().reverse().map(t => `<div style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.03)">
-      ${t.id} | ${t.symbol} | ${t.side} | qty:${t.qty} | price:${t.price} | ${t.placed_at}</div>`).join("");
-  } catch(e){ log("Trades load error"); }
+  const r = await safeFetch(API_BASE + "/trades");
+  if (!r.ok) return;
+  const arr = r.data;
+  const node = document.getElementById("tradelist");
+  if(!arr || arr.length===0){ node.innerHTML = "No trades"; return; }
+  node.innerHTML = arr.slice().reverse().map(t => `<div style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.03)">
+    ${t.id} | ${t.symbol} | ${t.side} | qty:${t.qty} | price:${t.price} | ${t.placed_at}</div>`).join("");
 }
 
-// load balance
 async function loadBalance(){
-  try {
-    const r = await fetch(API_BASE + "/bitget/balance");
-    const j = await r.json();
-    if(j && typeof j === 'object') {
-      const b = j["USDT"] || j["usdt"] || j.USDT || (j.data && j.data.USDT) || "n/a";
-      document.getElementById("balance").innerText = "USDT Balance: " + b;
-    } else {
-      document.getElementById("balance").innerText = "Balance: " + JSON.stringify(j);
-    }
-  } catch(e){ log("Balance load error"); }
+  const r = await safeFetch(API_BASE + "/bitget/balance");
+  if (!r.ok) return;
+  const j = r.data;
+  const b = j["USDT"] || j["usdt"] || (j.data && j.data.USDT) || "n/a";
+  document.getElementById("balance").innerText = "USDT Balance: " + b;
 }
 
-// deep scan
+// controls
 document.getElementById("deepScan").addEventListener("click", async () => {
-  try {
-    log("Triggering deep scan (this may take 1-2 minutes)...");
-    const r = await fetch(API_BASE + "/scan/run", { method: "POST" });
-    const j = await r.json();
-    log("Deep scan complete: " + (j.length || 0) + " results");
-    loadScan();
-  } catch(e){ log("Scan trigger error"); }
+  log("Triggering deep scan (may take 1-2 minutes)...");
+  const r = await safeFetch(API_BASE + "/scan/run", { method: "POST" });
+  if (r.ok) { log("Deep scan complete: " + (r.data.length || 0) + " results"); loadScan(); }
 });
-
-// auto toggle
 let autoOn = false;
 document.getElementById("toggleAuto").addEventListener("click", async () => {
-  try {
-    autoOn = !autoOn;
-    document.getElementById("toggleAuto").innerText = autoOn ? "⏱ Auto: ON" : "⏱ Auto: OFF";
-    await fetch(API_BASE + "/auto/set", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ enabled: autoOn })});
-    log("Auto toggled: " + autoOn);
-  } catch(e){ log("Auto toggle error"); }
+  autoOn = !autoOn;
+  document.getElementById("toggleAuto").innerText = autoOn ? "⏱ Auto: ON" : "⏱ Auto: OFF";
+  await safeFetch(API_BASE + "/auto/set", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ enabled: autoOn }) });
+  log("Auto set: " + autoOn);
 });
-
-// refresh
 document.getElementById("refreshAll").addEventListener("click", () => { loadTop10(); loadScan(); loadBalance(); loadTrades(); });
-
-// show trades
 document.getElementById("showTrades").addEventListener("click", () => loadTrades());
 
-// initial load
+// initial
 loadTop10();
 loadScan();
 loadBalance();
 loadTrades();
-setInterval(loadTop10, 20000);
+setInterval(loadTop10, 30000);
 setInterval(loadScan, 60000);
 </script>
 </body>
 </html>
-
