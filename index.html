@@ -2,19 +2,21 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>DexScan — Bitget Bot (Reference UI)</title>
+  <title>DexScan — Bitget Bot (Live/Demo UI)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
-    /* condensed style block — matches your reference dark UI */
     :root{--bg:#071226;--card:#0f2430;--muted:#8aa0a6;--accent:#16a085;--danger:#e74c3c;--yellow:#f6c23e}
     body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(180deg,#041024,#071020);color:#e6f0f0}
     header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:transparent}
     h1{margin:0;font-size:18px}
     .top{display:flex;gap:18px;align-items:center}
+    .mode-badge{padding:6px 10px;border-radius:8px;font-size:13px;font-weight:600}
+    .demo-badge{background:#00b894;color:#0a0a0a}
+    .live-badge{background:#e74c3c;color:#fff}
     .container{display:flex;gap:18px;padding:18px}
     .left{width:320px}
     .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,0.6)}
-    .controls{display:flex;gap:8px;margin-top:8px}
+    .controls{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
     button{background:var(--accent);border:none;color:white;padding:8px 12px;border-radius:8px;cursor:pointer}
     button.secondary{background:#22343a}
     .small{font-size:13px;color:var(--muted)}
@@ -32,8 +34,9 @@
     .settings-panel{position:fixed;left:0;top:0;height:100%;width:360px;background:#0c1b24;padding:18px;box-shadow:2px 0 30px rgba(0,0,0,0.6);transform:translateX(-380px);transition:transform .22s}
     .settings-panel.open{transform:translateX(0)}
     .save{background:var(--yellow);color:#08121c;border:none;padding:10px;border-radius:8px;width:100%;cursor:pointer}
-    .right{width:360px}
-    .muted{color:var(--muted)}
+    .mode-toggle{background:#22343a;color:#f8f8f8;border:none;padding:8px 10px;border-radius:8px;cursor:pointer}
+    .mode-toggle.demo{background:#0078ff}
+    .mode-toggle.live{background:#f39c12}
     .tooltip{position:fixed;background:#071526;padding:10px;border-radius:8px;color:#cfe8e0;display:none;z-index:9999;box-shadow:0 6px 20px rgba(0,0,0,0.6)}
   </style>
 </head>
@@ -45,6 +48,7 @@
         <div>BTC <span id="btcTop">—</span></div>
         <div>ETH <span id="ethTop">—</span></div>
         <div>BNB <span id="bnbTop">—</span></div>
+        <div id="modeBadge" class="mode-badge demo-badge">Demo Mode 🟢</div>
       </div>
     </div>
     <div id="backendStatus" class="small">Backend not reachable</div>
@@ -59,8 +63,9 @@
           <button id="autoToggle" class="secondary">⏱ Auto: OFF</button>
           <button id="refreshBtn" class="secondary">🔄 Refresh</button>
           <button id="openSettings" class="secondary">⚙ Settings</button>
+          <button id="toggleMode" class="mode-toggle demo">Demo Mode</button>
         </div>
-        <div class="small muted" style="margin-top:8px">Demo mode is controlled by backend env. Use demo before switching live.</div>
+        <div class="small muted" style="margin-top:8px">Switch to live carefully; requires valid Bitget API keys.</div>
         <div id="logs" class="small"></div>
       </div>
     </div>
@@ -75,29 +80,6 @@
           </thead>
           <tbody id="tableBody"></tbody>
         </table>
-      </div>
-
-      <div style="display:flex;gap:12px">
-        <div class="card" style="flex:1">
-          <h4>Scanner Results</h4>
-          <div id="signalsList" class="small muted">No signals</div>
-        </div>
-        <div class="card right" style="width:320px">
-          <h4>Trades & Wallet</h4>
-          <div id="balanceTop" class="small">USDT: ...</div>
-          <div style="margin-top:10px"><button id="showTrades">Show Trades</button></div>
-          <div id="tradesDiv" style="margin-top:10px" class="small muted">No trades</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="right">
-      <div class="card">
-        <h4>Quick</h4>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <button id="buyAllBtn">Auto Buy Top N</button>
-          <button id="sellAllBtn" class="secondary">Close All</button>
-        </div>
       </div>
     </div>
   </div>
@@ -124,234 +106,56 @@
   <div id="tooltip" class="tooltip"></div>
 
 <script>
-/* --------- CONFIG --------- */
-/* Replace <YOUR_BACKEND_DOMAIN> with your Render backend domain, e.g. dexscan-backend.onrender.com */
-const API_BASE = "https://dexscan-backend.onrender.com/api"; // <<<<<< REPLACE THIS
+const API_BASE = "https://dexscan-backend.onrender.com/api"; // change if your backend URL differs
 const LOGS = document.getElementById("logs");
-const tooltip = document.getElementById("tooltip");
+function log(msg){LOGS.innerHTML=new Date().toLocaleTimeString()+" — "+msg+"<br>"+LOGS.innerHTML;}
 
-/* --------- helpers --------- */
-function log(msg) {
-  LOGS.innerHTML = new Date().toLocaleTimeString() + " — " + msg + "<br>" + LOGS.innerHTML;
-  console.log(msg);
-}
-async function api(path, opts = {}) {
-  try {
-    const r = await fetch(API_BASE + path, opts);
-    if (!r.ok) { const txt = await r.text(); log("ERR " + r.status + " " + path + " -> " + txt); return { ok:false, status:r.status, text:txt }; }
-    return { ok:true, data: await r.json() };
-  } catch (e) { log("Network: " + e.message); return { ok:false, error: e.message }; }
-}
+async function api(path,opts={}){try{const r=await fetch(API_BASE+path,opts);if(!r.ok)return{ok:false,text:await r.text()};return{ok:true,data:await r.json()};}catch(e){return{ok:false,error:e.message};}}
 
-/* Real-time header via Binance WS */
-function wsPair(sym, elId) {
-  try {
-    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${sym.toLowerCase()}@trade`);
-    ws.onmessage = e => {
-      const d = JSON.parse(e.data);
-      document.getElementById(elId).innerText = Number(d.p).toLocaleString();
-    };
-    ws.onopen = () => console.log("WS open", sym);
-  } catch (e) { console.warn(e); }
-}
-wsPair("BTCUSDT","btcTop"); wsPair("ETHUSDT","ethTop"); wsPair("BNBUSDT","bnbTop");
-
-/* --------- render table --------- */
-async function renderTable() {
-  const tradesResp = await api("/trades");
-  const trades = tradesResp.ok ? tradesResp.data : [];
-  const scans = (await api("/scan/results")).ok ? (await api("/scan/results")).data : [];
-  const openSymbols = trades.filter(t => t.status === "OPEN").map(t => t.symbol);
-  const rows = [];
-
-  // active trades first
-  for (const t of trades.filter(x => x.status === "OPEN")) {
-    rows.push({ type: "trade", data: t });
+/* 🔄 Update mode button + header badge */
+async function updateModeUI(){
+  const res=await api("/mode");
+  if(!res.ok)return;
+  const isDemo=res.data.demo;
+  const btn=document.getElementById("toggleMode");
+  const badge=document.getElementById("modeBadge");
+  if(isDemo){
+    btn.textContent="Demo Mode";
+    btn.className="mode-toggle demo";
+    badge.textContent="Demo Mode 🟢";
+    badge.className="mode-badge demo-badge";
+  }else{
+    btn.textContent="Live Mode";
+    btn.className="mode-toggle live";
+    badge.textContent="Live Mode 🔴";
+    badge.className="mode-badge live-badge";
   }
-  // signals next (not already bought)
-  for (const s of scans.slice(0, 20)) {
-    if (openSymbols.includes(s.symbol)) continue;
-    rows.push({ type: "signal", data: s });
+}
+
+/* 🖱 Toggle mode (Demo <-> Live) */
+document.getElementById("toggleMode").onclick=async()=>{
+  const cur=document.getElementById("toggleMode").textContent.includes("Demo");
+  if(cur){
+    if(!confirm("⚠ Switch to LIVE mode? Make sure valid API keys are configured.")) return;
+  }else{
+    if(!confirm("Switch back to DEMO mode?")) return;
   }
-
-  const tbody = document.getElementById("tableBody");
-  tbody.innerHTML = rows.map(r => {
-    if (r.type === "trade") {
-      const t = r.data;
-      const pnl = t.unreal_pnl ?? t.pnl ?? 0;
-      const color = pnl > 0 ? "color: #16a34a" : (pnl < 0 ? "color:#ff6b6b" : "");
-      return `<tr>
-        <td><div class="symbol" data-symbol="${t.symbol}">${t.symbol}</div></td>
-        <td><span class="pill">${t.status}</span></td>
-        <td>${t.entry_price?.toFixed ? t.entry_price.toFixed(6) : t.entry_price}</td>
-        <td>${t.latest_price ? Number(t.latest_price).toLocaleString() : '-'}</td>
-        <td style="${color}">${typeof pnl === 'number' ? pnl.toFixed(6) : pnl}</td>
-        <td>HOLD</td>
-        <td>$${(t.invested||0).toFixed(2)}</td>
-        <td>
-          <label class="toggle"><input type="checkbox" data-id="${t.id}" class="autosell" ${t.autoSell ? 'checked' : ''}></label>
-          <button class="sell-btn" data-close="${t.id}">Sell</button>
-        </td>
-      </tr>`;
-    } else {
-      const s = r.data;
-      return `<tr>
-        <td><div class="symbol" data-symbol="${s.symbol}">${s.symbol}</div></td>
-        <td><span class="pill">signal</span></td>
-        <td>${s.entry?.toFixed ? s.entry.toFixed(6) : s.entry ?? '-'}</td>
-        <td>${s.entry ? Number(s.entry).toLocaleString() : '-'}</td>
-        <td>0</td>
-        <td>${(s.reasons||[]).slice(0,3).join(", ")}</td>
-        <td>$${0}</td>
-        <td><button class="buy-btn" data-buy="${s.symbol}">Buy</button></td>
-      </tr>`;
-    }
-  }).join("");
-  attachRowEvents();
-  document.getElementById("signalsList").innerText = scans.length ? scans.map(s=>s.symbol+" ("+s.score+")").join(", ") : "No signals";
-}
-
-/* attach events */
-function attachRowEvents() {
-  document.querySelectorAll(".buy-btn").forEach(b => b.onclick = async () => {
-    const symbol = b.dataset.buy;
-    if (!confirm("Place BUY for " + symbol + " ?")) return;
-    log("Buy requested " + symbol);
-    const r = await api("/trade/buy", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ symbol }) });
-    if (r.ok) { log("Buy placed (or simulated)"); await refreshAll(); } else alert("Buy error: " + (r.text || r.error));
-  });
-
-  document.querySelectorAll(".sell-btn").forEach(b => b.onclick = async () => {
-    const id = b.dataset.close;
-    if (!confirm("Close trade " + id + " ?")) return;
-    log("Close requested " + id);
-    const r = await api("/trade/sell", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ trade_id: id }) });
-    if (r.ok) { log("Closed"); await refreshAll(); } else alert("Close error");
-  });
-
-  document.querySelectorAll(".autosell").forEach(c => c.onchange = async () => {
-    const id = c.dataset.id;
-    const val = c.checked;
-    await api("/trade/toggle_autosell", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ trade_id: id, auto: val }) });
-    log("Auto sell toggled " + id + " -> " + val);
-  });
-
-  // hover tooltip
-  document.querySelectorAll(".symbol").forEach(el => {
-    el.onmouseenter = async (ev) => {
-      const sym = el.dataset.symbol;
-      const res = await api("/scan/results");
-      const arr = res.ok ? res.data : [];
-      const found = arr.find(x => x.symbol === sym);
-      let html = `<strong>${sym}</strong><br/>`;
-      if (found) html += `Score: ${found.score}<br/>${(found.reasons || []).slice(0,4).join(", ")}<br/>Entry:${found.entry}<br/>TP:${found.tp}`;
-      else html += "No data";
-      tooltip.innerHTML = html;
-      tooltip.style.display = "block";
-      const r = el.getBoundingClientRect();
-      tooltip.style.left = (r.right + 12) + "px";
-      tooltip.style.top = (r.top) + "px";
-    };
-    el.onmouseleave = () => { tooltip.style.display = "none"; tooltip.innerHTML = ""; };
-  });
-}
-
-/* ----- trades / balance UI ----- */
-async function loadTrades() {
-  const r = await api("/trades");
-  if (!r.ok) return document.getElementById("tradesDiv").innerText = "No trades";
-  const arr = r.data || [];
-  const html = arr.slice().reverse().map(t => {
-    if (t.status === "OPEN") return `<div style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.03)">${t.symbol} - invested ${t.invested} | entry ${t.entry_price} | <button data-close="${t.id}" class="sell-btn">Sell</button></div>`;
-    else return `<div style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.03)">${t.symbol} - CLOSED pnl:${t.pnl}</div>`;
-  }).join("");
-  document.getElementById("tradesDiv").innerHTML = html || "No trades";
-}
-
-async function loadBalance() {
-  const r = await api("/balance");
-  if (!r.ok) return document.getElementById("balanceTop").innerText = "USDT: n/a";
-  const b = r.data.balance || r.data;
-  const usdt = b?.USDT ?? b?.usdt ?? (b?.USDT ?? "n/a");
-  document.getElementById("balanceTop").innerText = "USDT: " + (usdt ?? "n/a");
-}
-
-/* settings */
-const panel = document.getElementById("settingsPanel");
-document.getElementById("openSettings").onclick = async () => {
-  const r = await api("/settings");
-  if (r.ok) {
-    const s = r.data || {};
-    document.getElementById("setting_tp").value = s.tp ?? 10;
-    document.getElementById("setting_sl").value = s.sl ?? 100;
-    document.getElementById("setting_invest").value = s.invest ?? 5;
-    document.getElementById("setting_count").value = s.count ?? 10;
-    document.getElementById("setting_autosell").checked = !!s.autosell;
-  }
-  panel.classList.add("open");
-};
-document.getElementById("saveSettings").onclick = async () => {
-  const payload = {
-    tp: Number(document.getElementById("setting_tp").value || 10),
-    sl: Number(document.getElementById("setting_sl").value || 100),
-    invest: Number(document.getElementById("setting_invest").value || 5),
-    count: Number(document.getElementById("setting_count").value || 10),
-    autosell: !!document.getElementById("setting_autosell").checked
-  };
-  const r = await api("/settings", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload) });
-  if (r.ok) { log("Settings saved"); panel.classList.remove("open"); }
-  else log("Settings save failed");
+  const res=await api("/mode",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({demo:!cur})});
+  if(res.ok){log("Mode switched successfully");updateModeUI();}
+  else log("Mode switch failed");
 };
 
-document.getElementById("deepScan").onclick = async () => {
-  log("Triggering deep scan...");
-  const r = await api("/scan/run", { method: "POST" });
-  if (r.ok) log("Scan finished: " + (r.data?.length || 0));
-  await refreshAll();
-};
-document.getElementById("refreshBtn").onclick = refreshAll;
-document.getElementById("showTrades").onclick = loadTrades;
-document.getElementById("buyAllBtn").onclick = async () => {
-  if (!confirm("Start Auto-Buy worker?")) return;
-  const r = await api("/auto", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ enabled: true }) });
-  if (r.ok) { log("Auto-buy started"); document.getElementById("autoToggle").innerText = "⏱ Auto: ON"; }
-};
-document.getElementById("sellAllBtn").onclick = async () => {
-  if (!confirm("Close all open trades?")) return;
-  const t = (await api("/trades")).data || [];
-  for (const tr of (t || []).filter(x => x.status === "OPEN")) {
-    await api("/trade/sell", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ trade_id: tr.id }) });
-    log("Close requested " + tr.id);
-  }
-  await refreshAll();
-};
-
-document.getElementById("autoToggle").onclick = async () => {
-  const cur = document.getElementById("autoToggle").innerText.includes("ON");
-  const enable = !cur;
-  const r = await api("/auto", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ enabled: enable })});
-  if (r.ok) document.getElementById("autoToggle").innerText = enable ? "⏱ Auto: ON" : "⏱ Auto: OFF";
-};
-
-/* refresh all UI */
-async function refreshAll() {
-  await renderTable();
-  await loadTrades();
-  await loadBalance();
-  const root = await api("/");
-  document.getElementById("backendStatus").innerText = root.ok ? "Backend connected" : "Backend not reachable";
+/* Check backend connection */
+async function refreshAll(){
+  await updateModeUI();
+  const root=await api("/");
+  document.getElementById("backendStatus").innerText=root.ok?"Backend connected":"Backend not reachable";
 }
 
 /* init */
-(async function init() {
-  // WARNING: replace API_BASE above with your backend domain in this file
-  if (API_BASE.includes("<YOUR_BACKEND_DOMAIN>")) {
-    alert("Please edit index.html and set API_BASE to your backend URL (Render) before using the UI.");
-  }
+(async function init(){
   await refreshAll();
-  setInterval(refreshAll, 5000);
 })();
 </script>
 </body>
 </html>
-
