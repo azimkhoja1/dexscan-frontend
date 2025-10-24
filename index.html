@@ -1,254 +1,266 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DexScan — Bitget Bot</title>
+  <meta charset="utf-8" />
+  <title>DexScan UI — final</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body {
-      background-color: #0d1117;
-      color: #e6edf3;
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      margin: 0;
-      padding: 0;
-    }
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #161b22;
-      padding: 10px 20px;
-      border-bottom: 1px solid #30363d;
-    }
-    header span {
-      font-weight: bold;
-      color: #58a6ff;
-    }
-    .controls, .scanner, .trades {
-      background: #161b22;
-      border: 1px solid #30363d;
-      border-radius: 8px;
-      margin: 10px;
-      padding: 15px;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 2fr 2fr;
-      gap: 10px;
-    }
-    button {
-      background: #238636;
-      border: none;
-      color: white;
-      padding: 6px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      margin-right: 6px;
-    }
-    button.red { background: #d73a49; }
-    button.blue { background: #1f6feb; }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-    th, td {
-      padding: 6px 8px;
-      border-bottom: 1px solid #30363d;
-      text-align: left;
-    }
-    .mode-label {
-      font-size: 13px;
-      color: #aaa;
-    }
-    .top-coins {
-      display: flex;
-      gap: 20px;
-      font-size: 14px;
-    }
-    .top-coins span { color: #7ee787; }
+    :root{--bg:#071226;--card:#0f2430;--muted:#9fb0b9;--accent:#16a085;--danger:#e74c3c}
+    body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(180deg,#041024,#071020);color:#e6f0f0}
+    header{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;background:#081424}
+    h1{margin:0;font-size:18px}
+    .top{display:flex;gap:16px;align-items:center}
+    .btn{background:var(--accent);border:none;color:white;padding:8px 10px;border-radius:8px;cursor:pointer;margin-right:6px}
+    .btn.secondary{background:#22343a}
+    .btn.red{background:var(--danger)}
+    .container{display:grid;grid-template-columns:280px 1fr 360px;gap:12px;padding:12px}
+    .card{background:#0f2430;padding:12px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,0.6)}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);text-align:left;font-size:13px}
+    th{color:var(--muted);font-size:12px}
+    select,input{padding:6px;border-radius:6px;border:1px solid #123; background:#071a20;color:#e6f0f0}
+    #log{height:200px;overflow:auto;font-size:13px;margin-top:8px}
+    .controls-row{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap}
+    .filter{margin-top:8px}
   </style>
 </head>
 <body>
   <header>
-    <div>
-      <span>DexScan — Bitget Bot</span>
-      <div class="top-coins">
-        <span>BTC: <b id="btcPrice">--</b></span>
-        <span>ETH: <b id="ethPrice">--</b></span>
-        <span>BNB: <b id="bnbPrice">--</b></span>
+    <div style="display:flex;gap:12px;align-items:center">
+      <h1>DexScan</h1>
+      <div class="top">
+        <div>BTC: <span id="btc">-</span></div>
+        <div>ETH: <span id="eth">-</span></div>
+        <div>BNB: <span id="bnb">-</span></div>
       </div>
     </div>
-    <div>
-      <b id="modeStatus" style="color:#ffa657;">Loading mode...</b>
+    <div style="text-align:right">
+      <div id="modeLabel">Mode: <b id="modeTxt">--</b></div>
     </div>
   </header>
 
-  <div class="grid">
-    <div class="controls">
+  <div class="container">
+    <div class="card">
       <h3>Controls</h3>
-      <button id="deepScanBtn">🔍 Deep Scan</button>
-      <button id="autoScanBtn" class="blue">Auto: OFF</button>
-      <button id="toggleModeBtn">Switch to Live</button>
-      <button id="refreshBtn" class="blue">Refresh</button>
-      <div id="logBox" style="margin-top:10px; font-size:12px; max-height:200px; overflow:auto;"></div>
+      <div class="controls-row">
+        <button id="deepScan" class="btn">🔍 Deep Scan</button>
+        <button id="autoScan" class="btn secondary">Auto: OFF</button>
+        <button id="toggleMode" class="btn">Switch Mode</button>
+        <button id="refresh" class="btn">Refresh</button>
+      </div>
+
+      <div style="margin-top:10px">
+        <label>TP %</label><input id="tp" type="number" value="10" style="width:80px;margin-left:8px">
+        <label style="margin-left:8px">Percent per trade</label><input id="pct" type="number" value="2" style="width:60px;margin-left:8px">
+      </div>
+
+      <div class="filter">
+        <label>Show:</label>
+        <select id="filter">
+          <option value="all">All</option>
+          <option value="open">Open</option>
+          <option value="closed">Closed</option>
+        </select>
+      </div>
+
+      <div id="log"></div>
     </div>
 
-    <div class="scanner">
+    <div class="card">
       <h3>Scanner Results</h3>
       <table>
-        <thead>
-          <tr><th>Symbol</th><th>Score</th><th>Entry</th><th>Reason</th><th>Actions</th></tr>
-        </thead>
-        <tbody id="scanResults"></tbody>
+        <thead><tr><th>Symbol</th><th>Score</th><th>Entry</th><th>Reason</th><th>Action</th></tr></thead>
+        <tbody id="scanBody"></tbody>
       </table>
     </div>
 
-    <div class="trades">
+    <div class="card">
       <h3>Trades & Wallet</h3>
-      <div>Balance: <b id="balance">--</b> USDT</div>
+      <div>Balance USDT: <b id="balance">-</b></div>
       <table>
-        <thead><tr><th>Symbol</th><th>Entry</th><th>PNL</th><th>Status</th></tr></thead>
-        <tbody id="tradesList"></tbody>
+        <thead><tr><th>Symbol</th><th>Entry</th><th>Latest</th><th>PNL</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="tradesBody"></tbody>
       </table>
     </div>
   </div>
 
-  <script>
-    const BACKEND = "https://dexscan-backend.onrender.com";
-    const logBox = document.getElementById("logBox");
-    const addLog = msg => {
-      const t = new Date().toLocaleTimeString();
-      logBox.innerHTML = `[${t}] ${msg}<br>` + logBox.innerHTML;
-    };
+<script>
+/* -------- CONFIG - change only this if different -------- */
+const API_ROOT = "https://dexscan-backend.onrender.com"; // <-- no trailing /api
+const API = API_ROOT + "/api";
 
-    async function loadPrices() {
-      try {
-        const r = await fetch(BACKEND + "/api/header");
-        const d = await r.json();
-        document.getElementById("btcPrice").textContent = d.find(x => x.id==="bitcoin") ? "OK" : "--";
-      } catch { addLog("Failed to load prices"); }
+/* helpers */
+function el(id){ return document.getElementById(id); }
+function log(msg) {
+  const box = el("log");
+  box.innerHTML = new Date().toLocaleTimeString() + " — " + msg + "<br>" + box.innerHTML;
+}
+async function getJson(path, opts={}) {
+  try {
+    const r = await fetch(API + path, opts);
+    if (!r.ok) {
+      const txt = await r.text();
+      log("ERR " + path + " -> " + txt);
+      return null;
     }
+    return await r.json();
+  } catch (e) { log("Network " + e.message); return null; }
+}
 
-    async function refreshPrices() {
-      try {
-        const url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,binancecoin&vs_currencies=usd";
-        const res = await fetch(url);
-        const data = await res.json();
-        document.getElementById("btcPrice").textContent = data.bitcoin.usd;
-        document.getElementById("ethPrice").textContent = data.ethereum.usd;
-        document.getElementById("bnbPrice").textContent = data.binancecoin.usd;
-      } catch {}
-    }
+/* live header prices via Binance WS */
+function startWS(sym, elId) {
+  try{
+    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${sym.toLowerCase()}@trade`);
+    ws.onmessage = e => { const d = JSON.parse(e.data); el(elId).innerText = Number(d.p).toLocaleString(); };
+  }catch(e){}
+}
+startWS("BTCUSDT","btc"); startWS("ETHUSDT","eth"); startWS("BNBUSDT","bnb");
 
-    async function loadMode() {
-      const res = await fetch(BACKEND + "/api/mode");
-      const d = await res.json();
-      const modeLabel = document.getElementById("modeStatus");
-      const toggleBtn = document.getElementById("toggleModeBtn");
-      if (d.demo) {
-        modeLabel.textContent = "🧪 Demo Mode";
-        modeLabel.style.color = "#7ee787";
-        toggleBtn.textContent = "Switch to Live";
-      } else {
-        modeLabel.textContent = "💹 Live Mode";
-        modeLabel.style.color = "#ffa657";
-        toggleBtn.textContent = "Switch to Demo";
-      }
-    }
+/* UI elements */
+const deepBtn = el("deepScan");
+const autoBtn = el("autoScan");
+const toggleModeBtn = el("toggleMode");
+const refreshBtn = el("refresh");
+const scanBody = el("scanBody");
+const tradesBody = el("tradesBody");
+const balanceEl = el("balance");
+const filterEl = el("filter");
+const tpEl = el("tp");
+const pctEl = el("pct");
+const modeTxt = el("modeTxt");
 
-    async function toggleMode() {
-      const res = await fetch(BACKEND + "/api/mode");
-      const d = await res.json();
-      const newMode = !d.demo;
-      await fetch(BACKEND + "/api/mode", {
-        method: "POST", headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ demo: newMode })
-      });
-      addLog("Mode switched to " + (newMode ? "Demo" : "Live"));
-      await loadMode();
-    }
+/* state */
+let config = { demo:true, autoScan:false, percent:2, tpPercent:10 };
 
-    async function runScan() {
-      addLog("Triggering deep scan...");
-      const res = await fetch(BACKEND + "/api/scan/run", { method: "POST" });
-      const data = await res.json();
-      const box = document.getElementById("scanResults");
-      box.innerHTML = "";
-      data.forEach(c => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${c.symbol}</td>
-          <td>${c.score}</td>
-          <td>${c.entry}</td>
-          <td title="${c.reasons.join(', ')}">${c.reasons.join(', ')}</td>
-          <td>
-            <button onclick="buy('${c.symbol}')">Buy</button>
-          </td>
-        `;
-        box.appendChild(tr);
-      });
-      addLog(`Scan finished: ${data.length} results`);
-    }
+/* load config & update UI */
+async function loadConfig() {
+  const cfg = await getJson("/config");
+  if (cfg) { config = cfg; }
+  // fallback get /mode if /config not present
+  const mode = await getJson("/mode");
+  if (mode) config.demo = mode.demo;
+  modeTxt.innerText = config.demo ? "Demo" : "Live";
+  autoBtn.innerText = config.autoScan ? "Auto: ON" : "Auto: OFF";
+  tpEl.value = config.tpPercent || 10;
+  pctEl.value = config.percent || 2;
+}
 
-    async function buy(symbol) {
-      const res = await fetch(BACKEND + "/api/trade/buy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol })
-      });
-      const data = await res.json();
-      addLog(`Buy executed: ${symbol}`);
-      await loadTrades();
-      await loadBalance();
-    }
+/* scan */
+async function runScan() {
+  deepBtn.disabled = true;
+  log("Deep scan started...");
+  const data = await getJson("/scan/run", { method: "POST" });
+  if (!data) { deepBtn.disabled = false; return; }
+  renderScan(data);
+  log("Scan finished: " + data.length);
+  deepBtn.disabled = false;
+}
 
-    async function sell(id) {
-      const res = await fetch(BACKEND + "/api/trade/sell", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id })
-      });
-      const data = await res.json();
-      addLog(`Sell executed: ${data.trade.symbol}`);
-      await loadTrades();
-      await loadBalance();
-    }
+/* render scan rows */
+function renderScan(arr) {
+  scanBody.innerHTML = "";
+  arr.forEach(c => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${c.symbol}</td><td>${c.score}</td><td>${(c.entry||"-").toFixed?c.entry.toFixed(6):c.entry}</td>
+      <td title="${(c.reasons||[]).join(", ")}">${(c.reasons||[]).slice(0,2).join(", ")}</td>
+      <td><button onclick="buy('${c.symbol}')">Buy</button></td>`;
+    scanBody.appendChild(tr);
+  });
+}
 
-    async function loadTrades() {
-      const res = await fetch(BACKEND + "/api/trades");
-      const data = await res.json();
-      const list = document.getElementById("tradesList");
-      list.innerHTML = "";
-      data.forEach(t => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${t.symbol}</td>
-          <td>${t.entry_price?.toFixed(4) || "-"}</td>
-          <td>${t.pnl?.toFixed(3) || 0}</td>
-          <td>${t.status}</td>
-          <td><button class="red" onclick="sell(${t.id})">Sell</button></td>
-        `;
-        list.appendChild(tr);
-      });
-    }
+/* buy handler */
+async function buy(symbol) {
+  const pct = Number(pctEl.value || config.percent);
+  const res = await fetch(API + "/trade/buy", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ symbol, percent: pct })});
+  const j = await res.json();
+  if (j && j.ok) {
+    log("Bought " + symbol + (j.trade ? " (sim)" : ""));
+    await loadTrades(); await loadBalance();
+  } else log("Buy failed");
+}
 
-    async function loadBalance() {
-      const res = await fetch(BACKEND + "/api/balance");
-      const data = await res.json();
-      document.getElementById("balance").textContent = data.balance.USDT.toFixed(2);
-    }
+/* sell handler */
+async function sell(id) {
+  const res = await fetch(API + "/trade/sell", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ trade_id: id })});
+  const j = await res.json();
+  if (j && j.ok) { log("Sold " + j.trade.symbol); await loadTrades(); await loadBalance(); }
+  else log("Sell failed");
+}
 
-    document.getElementById("deepScanBtn").onclick = runScan;
-    document.getElementById("refreshBtn").onclick = () => { loadTrades(); loadBalance(); refreshPrices(); };
-    document.getElementById("toggleModeBtn").onclick = toggleMode;
+/* trades & balance */
+async function loadTrades() {
+  const data = await getJson("/trades");
+  if (!data) return;
+  tradesBody.innerHTML = "";
+  const filter = filterEl.value;
+  data.forEach(t => {
+    if (filter === "open" && t.status !== "OPEN") return;
+    if (filter === "closed" && t.status === "OPEN") return;
+    const tr = document.createElement("tr");
+    const latest = t.latest_price ?? "-";
+    const pnl = (typeof t.pnl === "number") ? t.pnl.toFixed(6) : "-";
+    tr.innerHTML = `<td>${t.symbol}</td><td>${(t.entry_price||"-").toFixed? t.entry_price.toFixed(6) : t.entry_price}</td>
+      <td>${latest !== "-" ? Number(latest).toLocaleString(undefined,{maximumFractionDigits:8}) : "-"}</td>
+      <td style="color:${t.pnl>0?'#7ee787':'#ff6b6b'}">${pnl}</td>
+      <td>${t.status}</td>
+      <td>${t.status==="OPEN" ? `<button class="btnred" onclick="sell('${t.id}')">Sell</button>` : '-'}</td>`;
+    tradesBody.appendChild(tr);
+  });
+}
 
-    setInterval(refreshPrices, 15000);
-    setInterval(loadTrades, 10000);
-    loadMode();
-    refreshPrices();
-    loadBalance();
-    loadTrades();
-  </script>
+/* balance */
+async function loadBalance() {
+  const j = await getJson("/balance");
+  if (!j) return;
+  const b = j.balance || (j.balance = { USDT: 0 });
+  balanceEl.innerText = (b.USDT || 0).toFixed(2);
+}
+
+/* auto-scan toggle */
+async function toggleAuto() {
+  const newVal = !config.autoScan;
+  await fetch(API + "/scan/auto", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ enabled: newVal }) });
+  config.autoScan = newVal;
+  autoBtn.innerText = config.autoScan ? "Auto: ON" : "Auto: OFF";
+  log("Auto scan " + (newVal ? "enabled" : "disabled"));
+}
+
+/* toggle demo/live */
+async function toggleMode() {
+  const newMode = !config.demo;
+  await fetch(API + "/mode", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ demo: newMode }) });
+  config.demo = newMode;
+  modeTxt.innerText = config.demo ? "Demo" : "Live";
+  log("Mode set to " + (config.demo ? "Demo" : "Live"));
+  await loadBalance(); await loadTrades();
+}
+
+/* persist auto-scan on load: call /config to know if auto enabled and start auto behavior on frontend */
+async function ensureAutoRunning() {
+  const cfg = await getJson("/config");
+  if (cfg && cfg.autoScan) {
+    config.autoScan = true;
+    autoBtn.innerText = "Auto: ON";
+  }
+}
+
+/* initial load & intervals */
+deepBtn.onclick = runScan;
+autoBtn.onclick = async () => { await toggleAuto(); };
+toggleModeBtn.onclick = toggleMode;
+refreshBtn.onclick = async () => { await loadBalance(); await loadTrades(); await runScan(); };
+
+filterEl.onchange = loadTrades;
+
+(async function init() {
+  await loadConfig();
+  await ensureAutoRunning();
+  await runScan(); // one-time startup scan
+  await loadTrades(); await loadBalance();
+  setInterval(loadTrades, 5000);
+  setInterval(loadBalance, 5000);
+  // if autoScan enabled server-side, it will run in background; frontend will reflect results on refresh
+})();
+</script>
 </body>
 </html>
