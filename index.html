@@ -2,21 +2,17 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>DexScan — Bitget Bot (Live/Demo UI)</title>
+  <title>DexScan — Bitget Bot (Fixed API)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
     :root{--bg:#071226;--card:#0f2430;--muted:#8aa0a6;--accent:#16a085;--danger:#e74c3c;--yellow:#f6c23e}
     body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(180deg,#041024,#071020);color:#e6f0f0}
-    header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:transparent}
+    header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px}
     h1{margin:0;font-size:18px}
     .top{display:flex;gap:18px;align-items:center}
-    .mode-badge{padding:6px 10px;border-radius:8px;font-size:13px;font-weight:600}
-    .demo-badge{background:#00b894;color:#0a0a0a}
-    .live-badge{background:#e74c3c;color:#fff}
     .container{display:flex;gap:18px;padding:18px}
     .left{width:320px}
     .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,0.6)}
-    .controls{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
     button{background:var(--accent);border:none;color:white;padding:8px 12px;border-radius:8px;cursor:pointer}
     button.secondary{background:#22343a}
     .small{font-size:13px;color:var(--muted)}
@@ -25,19 +21,6 @@
     th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,0.03);vertical-align:middle;text-align:left}
     th{color:#9fb0b9;font-size:12px}
     .symbol{font-weight:700;color:#bfeee2;cursor:default}
-    .pill{background:#0d2a24;color:#7ee6cc;padding:4px 8px;border-radius:999px;font-size:12px}
-    .sell-btn{background:var(--danger);color:white;border:none;padding:8px 10px;border-radius:8px;cursor:pointer}
-    .toggle input{width:40px;height:22px;appearance:none;background:#223239;border-radius:999px;position:relative;outline:none}
-    .toggle input:checked{background:#16a085}
-    .toggle input::after{content:'';width:18px;height:18px;background:white;border-radius:50%;position:relative;left:2px;top:2px;display:block;transition:all .15s}
-    .toggle input:checked::after{transform:translateX(18px)}
-    .settings-panel{position:fixed;left:0;top:0;height:100%;width:360px;background:#0c1b24;padding:18px;box-shadow:2px 0 30px rgba(0,0,0,0.6);transform:translateX(-380px);transition:transform .22s}
-    .settings-panel.open{transform:translateX(0)}
-    .save{background:var(--yellow);color:#08121c;border:none;padding:10px;border-radius:8px;width:100%;cursor:pointer}
-    .mode-toggle{background:#22343a;color:#f8f8f8;border:none;padding:8px 10px;border-radius:8px;cursor:pointer}
-    .mode-toggle.demo{background:#0078ff}
-    .mode-toggle.live{background:#f39c12}
-    .tooltip{position:fixed;background:#071526;padding:10px;border-radius:8px;color:#cfe8e0;display:none;z-index:9999;box-shadow:0 6px 20px rgba(0,0,0,0.6)}
   </style>
 </head>
 <body>
@@ -48,115 +31,99 @@
         <div>BTC <span id="btcTop">—</span></div>
         <div>ETH <span id="ethTop">—</span></div>
         <div>BNB <span id="bnbTop">—</span></div>
-        <div id="modeBadge" class="mode-badge demo-badge">Demo Mode 🟢</div>
       </div>
     </div>
-    <div id="backendStatus" class="small">Backend not reachable</div>
+    <div id="backendStatus" class="small">Connecting...</div>
   </header>
 
   <div class="container">
     <div class="left">
       <div class="card">
         <h3>Controls</h3>
-        <div class="controls">
-          <button id="deepScan">🔍 Deep Scan</button>
-          <button id="autoToggle" class="secondary">⏱ Auto: OFF</button>
-          <button id="refreshBtn" class="secondary">🔄 Refresh</button>
-          <button id="openSettings" class="secondary">⚙ Settings</button>
-          <button id="toggleMode" class="mode-toggle demo">Demo Mode</button>
-        </div>
-        <div class="small muted" style="margin-top:8px">Switch to live carefully; requires valid Bitget API keys.</div>
+        <button id="deepScan">🔍 Deep Scan</button>
+        <button id="refreshBtn" class="secondary">🔄 Refresh</button>
         <div id="logs" class="small"></div>
       </div>
     </div>
 
-    <div style="flex:1;display:flex;flex-direction:column;gap:12px">
-      <div class="card" style="padding:12px 16px">
+    <div style="flex:1">
+      <div class="card">
         <table>
-          <thead>
-            <tr>
-              <th>NAME</th><th>STATUS</th><th>ENTRY</th><th>PRICE</th><th>P&L</th><th>SELL SIGNAL</th><th>VALUE</th><th>ACTIONS</th>
-            </tr>
-          </thead>
+          <thead><tr><th>Symbol</th><th>Score</th><th>Entry</th><th>Reason</th></tr></thead>
           <tbody id="tableBody"></tbody>
         </table>
       </div>
     </div>
   </div>
 
-  <div id="settingsPanel" class="settings-panel">
-    <h3>Settings</h3>
-    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
-      <label class="small">Take Profit %</label>
-      <input id="setting_tp" class="small" type="number" value="10">
-      <label class="small">Stop Loss % (0 = off)</label>
-      <input id="setting_sl" class="small" type="number" value="100">
-      <label class="small">Investment Amount (USD)</label>
-      <input id="setting_invest" class="small" type="number" value="5">
-      <label class="small">Number of coins to buy</label>
-      <input id="setting_count" class="small" type="number" value="10">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span class="small">Auto Sell</span>
-        <label class="toggle"><input id="setting_autosell" type="checkbox"></label>
-      </div>
-      <button id="saveSettings" class="save">Save Settings</button>
-    </div>
-  </div>
-
-  <div id="tooltip" class="tooltip"></div>
-
 <script>
-const API_BASE = "https://dexscan-backend.onrender.com/api"; // change if your backend URL differs
+/* ✅ FIXED API URL (replace YOUR_BACKEND_DOMAIN) */
+const API_BASE = "https://dexscan-backend.onrender.com/api";
 const LOGS = document.getElementById("logs");
-function log(msg){LOGS.innerHTML=new Date().toLocaleTimeString()+" — "+msg+"<br>"+LOGS.innerHTML;}
 
-async function api(path,opts={}){try{const r=await fetch(API_BASE+path,opts);if(!r.ok)return{ok:false,text:await r.text()};return{ok:true,data:await r.json()};}catch(e){return{ok:false,error:e.message};}}
+function log(msg) {
+  LOGS.innerHTML = new Date().toLocaleTimeString() + " — " + msg + "<br>" + LOGS.innerHTML;
+  console.log(msg);
+}
 
-/* 🔄 Update mode button + header badge */
-async function updateModeUI(){
-  const res=await api("/mode");
-  if(!res.ok)return;
-  const isDemo=res.data.demo;
-  const btn=document.getElementById("toggleMode");
-  const badge=document.getElementById("modeBadge");
-  if(isDemo){
-    btn.textContent="Demo Mode";
-    btn.className="mode-toggle demo";
-    badge.textContent="Demo Mode 🟢";
-    badge.className="mode-badge demo-badge";
-  }else{
-    btn.textContent="Live Mode";
-    btn.className="mode-toggle live";
-    badge.textContent="Live Mode 🔴";
-    badge.className="mode-badge live-badge";
+async function api(path, opts = {}) {
+  try {
+    const base = API_BASE.endsWith('/') ? API_BASE.slice(0,-1) : API_BASE;
+    const fixedPath = path.startsWith('/') ? path : '/' + path;
+    const r = await fetch(base + fixedPath, opts);
+    if (!r.ok) {
+      const t = await r.text();
+      log("Error " + r.status + " " + fixedPath + " -> " + t);
+      return { ok:false, text:t };
+    }
+    return { ok:true, data:await r.json() };
+  } catch(e) {
+    log("Network: " + e.message);
+    return { ok:false, error:e.message };
   }
 }
 
-/* 🖱 Toggle mode (Demo <-> Live) */
-document.getElementById("toggleMode").onclick=async()=>{
-  const cur=document.getElementById("toggleMode").textContent.includes("Demo");
-  if(cur){
-    if(!confirm("⚠ Switch to LIVE mode? Make sure valid API keys are configured.")) return;
-  }else{
-    if(!confirm("Switch back to DEMO mode?")) return;
-  }
-  const res=await api("/mode",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({demo:!cur})});
-  if(res.ok){log("Mode switched successfully");updateModeUI();}
-  else log("Mode switch failed");
+/* Live header prices via Binance WebSocket */
+function wsPair(sym, elId) {
+  try {
+    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${sym.toLowerCase()}@trade`);
+    ws.onmessage = e => {
+      const d = JSON.parse(e.data);
+      document.getElementById(elId).innerText = Number(d.p).toLocaleString();
+    };
+  } catch(e) {}
+}
+wsPair("BTCUSDT","btcTop"); wsPair("ETHUSDT","ethTop"); wsPair("BNBUSDT","bnbTop");
+
+document.getElementById("deepScan").onclick = async () => {
+  log("Running scan...");
+  const r = await api("/scan/run", { method:"POST" });
+  if (r.ok) log("Scan completed");
+  await renderTable();
 };
 
-/* Check backend connection */
-async function refreshAll(){
-  await updateModeUI();
-  const root=await api("/");
-  document.getElementById("backendStatus").innerText=root.ok?"Backend connected":"Backend not reachable";
+document.getElementById("refreshBtn").onclick = async () => { await renderTable(); };
+
+async function renderTable() {
+  const res = await api("/scan/results");
+  const arr = res.ok ? res.data : [];
+  const tbody = document.getElementById("tableBody");
+  tbody.innerHTML = arr.map(c => `
+    <tr>
+      <td>${c.symbol}</td>
+      <td>${c.score}</td>
+      <td>${c.entry?.toFixed ? c.entry.toFixed(6) : c.entry}</td>
+      <td>${(c.reasons||[]).slice(0,3).join(", ")}</td>
+    </tr>`).join("");
 }
 
-/* init */
-(async function init(){
-  await refreshAll();
-})();
+async function refreshAll() {
+  const root = await api("/");
+  document.getElementById("backendStatus").innerText = root.ok ? "Backend connected" : "Backend not reachable";
+  await renderTable();
+}
+
+(async function init() { await refreshAll(); setInterval(refreshAll, 10000); })();
 </script>
 </body>
 </html>
-
