@@ -1,534 +1,257 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>DexScan — Live Scanner & Trader</title>
-<link rel="icon" href="data:,">
-<style>
-  :root {
-    --bg: #041024;
-    --card: #0f2430;
-    --muted: #9fb0b9;
-    --accent: #16a085;
-    --danger: #e74c3c;
-    --good: #28c76f;
-  }
-  html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(180deg,#041024,#071020);color:#e6f0f0}
-  header{display:flex;justify-content:space-between;align-items:center;padding:12px 20px}
-  h1{margin:0;font-size:18px}
-  .top-tickers{font-size:13px;color:var(--muted);display:flex;gap:16px;align-items:center}
-  .container{display:flex;gap:16px;padding:18px}
-  .col-left{width:340px}
-  .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,0.6)}
-  .controls{display:flex;gap:8px;flex-wrap:wrap}
-  button{background:var(--accent);border:none;color:white;padding:8px 12px;border-radius:8px;cursor:pointer}
-  button.ghost{background:#1c2b30}
-  button.warn{background:var(--danger)}
-  .small{font-size:13px;color:var(--muted)}
-  #logs{height:260px;overflow:auto;margin-top:12px;background:#071526;padding:8px;border-radius:6px}
-  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px}
-  th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,0.03);vertical-align:middle;text-align:left}
-  th{color:var(--muted);font-size:12px}
-  .symbol{font-weight:700;color:#bfeee2;cursor:pointer}
-  .pill{background:#0d2a24;color:#7ee6cc;padding:4px 8px;border-radius:999px;font-size:12px}
-  .btn-small{padding:6px 8px;border-radius:6px}
-  .trade-pnl{font-weight:700}
-  .blink-green{animation:blinkGreen .9s linear}
-  .blink-red{animation:blinkRed .9s linear}
-  @keyframes blinkGreen{0%{background:transparent}50%{background:rgba(40,199,111,0.12)}100%{background:transparent}}
-  @keyframes blinkRed{0%{background:transparent}50%{background:rgba(231,76,60,0.12)}100%{background:transparent}}
-  .detail-row{background:rgba(0,0,0,0.05);font-size:13px;padding:8px;border-radius:6px;margin-top:6px}
-  .top-right{font-size:13px;color:var(--muted)}
-  .header-right{display:flex;gap:12px;align-items:center}
-  select,input{padding:8px;border-radius:8px;border:0;background:#0b2a2a;color:#e6f0f0}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DexScan PRO - Bitget AI Trader</title>
+  <style>
+    body {
+      background: #0a0a0a;
+      color: #eee;
+      font-family: "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    header {
+      background: #111;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 0 10px #000;
+    }
+    h1 {
+      font-size: 20px;
+      color: #0ff;
+    }
+    #status {
+      color: #999;
+      font-size: 14px;
+    }
+    #header-prices {
+      font-size: 15px;
+      color: #0ff;
+      display: flex;
+      gap: 15px;
+    }
+    .container {
+      padding: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      background: #151515;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #333;
+      text-align: left;
+      font-size: 14px;
+    }
+    th {
+      background: #222;
+    }
+    tr:hover {
+      background: #1e1e1e;
+    }
+    button {
+      background: #0ff;
+      color: #000;
+      border: none;
+      border-radius: 5px;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    button:hover { background: #09f; color: #fff; }
+    .controls {
+      margin-bottom: 15px;
+    }
+    .autoOn { color: #0f0; }
+    .autoOff { color: #f00; }
+  </style>
 </head>
+
 <body>
+  <header>
+    <h1>DexScan PRO</h1>
+    <div id="header-prices">BTC: -- | ETH: -- | BNB: --</div>
+    <div id="status">Connecting backend...</div>
+  </header>
 
-<header>
-  <div style="display:flex;gap:16px;align-items:center">
-    <h1>DexScan — Bitget Bot</h1>
-    <div class="top-tickers">
-      <div>BTC: <b id="tick_btc">--</b></div>
-      <div>ETH: <b id="tick_eth">--</b></div>
-      <div>BNB: <b id="tick_bnb">--</b></div>
-      <div class="small" id="modeInfo">Mode: <b id="modeText">Demo</b></div>
-    </div>
-  </div>
-
-  <div class="header-right">
-    <div id="backendStatus" class="top-right">Backend not reachable</div>
-    <button id="logoutBtn" class="ghost" style="display:none">Logout</button>
-  </div>
-</header>
-
-<div class="container">
-  <div class="col-left">
-    <div class="card">
-      <h3 style="margin:0 0 6px 0">Controls</h3>
-      <div class="small" style="margin-bottom:8px">Auto-scan and auto-buy/auto-sell toggles are separate.</div>
-      <div class="controls">
-        <button id="deepScanBtn">🔍 Deep Scan</button>
-        <button id="autoScanBtn" class="ghost">Auto Scan: OFF</button>
-        <button id="autoTradeBtn" class="ghost">Auto Trade: OFF</button>
-        <button id="refreshBtn" class="ghost">🔄 Refresh</button>
-        <button id="modeToggleBtn" class="ghost">Switch Mode</button>
-        <button id="settingsBtn" class="ghost">⚙ Settings</button>
-      </div>
-
-      <div id="log" style="height:260px;overflow:auto;margin-top:12px;background:#071526;padding:8px;border-radius:6px;font-size:13px"></div>
-    </div>
-  </div>
-
-  <div style="flex:1;display:flex;flex-direction:column;gap:12px">
-    <div class="card">
-      <h3 style="margin:0 0 8px 0">Scanner Results <span class="small" id="scannerSubtitle"></span></h3>
-      <table>
-        <thead>
-          <tr><th>Symbol</th><th>Score</th><th>Entry</th><th>TP1/TP2/TP3</th><th>Potential</th><th>ETA</th><th>Action</th></tr>
-        </thead>
-        <tbody id="scannerBody"></tbody>
-      </table>
+  <div class="container">
+    <div class="controls">
+      <button id="deepScanBtn">🔍 Deep Scan</button>
+      <button id="autoScanBtn">Auto Scan: OFF</button>
+      <button id="autoTradeBtn">Auto Trade: OFF</button>
+      <button id="modeBtn">Mode: DEMO</button>
     </div>
 
-    <div class="card">
-      <h3 style="margin:0 0 8px 0">Trades & Wallet</h3>
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div class="small">Balance: <b id="balanceUSDT">...</b></div>
-        <div>
-          <select id="tradeFilter">
-            <option value="all">All</option>
-            <option value="open">Open</option>
-            <option value="closed">Closed</option>
-          </select>
-        </div>
-      </div>
+    <h3>📊 Scanner Results</h3>
+    <table id="scanner">
+      <thead>
+        <tr>
+          <th>Symbol</th><th>Entry</th><th>TP1</th><th>TP2</th><th>TP3</th>
+          <th>Potential</th><th>Hours</th><th>Score</th><th>Action</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
 
-      <table>
-        <thead><tr><th>Symbol</th><th>Entry</th><th>Latest</th><th>PNL</th><th>Exit</th><th>Status</th><th>Action</th></tr></thead>
-        <tbody id="tradesBody"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
+    <h3>💼 Trades & Wallet</h3>
+    <table id="trades">
+      <thead>
+        <tr><th>Symbol</th><th>Entry</th><th>Latest</th><th>PNL%</th><th>Status</th><th>Action</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
 
-<!-- Settings modal (simple) -->
-<div id="settingsModal" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:420px;z-index:9999">
-  <div class="card">
-    <h3>Settings</h3>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <label class="small">Take Profit % (TP): <input id="setTP" type="number" value="10" /></label>
-      <label class="small">TP2 %: <input id="setTP2" type="number" value="15" /></label>
-      <label class="small">TP3 %: <input id="setTP3" type="number" value="25" /></label>
-      <label class="small">Investment per trade (USD): <input id="setInvest" type="number" value="5" /></label>
-      <label class="small">Ignore stable pairs: <input id="ignoreStable" type="checkbox" checked /></label>
-      <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button id="saveSettingsBtn">Save</button>
-        <button id="closeSettingsBtn" class="ghost">Close</button>
-      </div>
-    </div>
+    <p>Balance: <span id="balance">--</span> USDT</p>
   </div>
-</div>
 
 <script>
-/* ===== CONFIG - set your backend root here ===== */
-const API_BASE = "https://dexscan-backend.onrender.com/api"; // <- REPLACE if different
+const BACKEND = "https://dexscan-backend.onrender.com";  // ✅ Your actual backend root
 
-/* ===== helpers ===== */
-const $ = sel => document.querySelector(sel);
-const logEl = document.getElementById("log");
-function appendLog(msg){
-  const t = new Date().toLocaleTimeString() + " — " + msg;
-  logEl.innerHTML = t + "<br>" + logEl.innerHTML;
+async function getJson(url, method="GET", body=null) {
+  const opt = { method, headers: { "Content-Type": "application/json" }};
+  if (body) opt.body = JSON.stringify(body);
+  const r = await fetch(url, opt);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
 }
-function safeJson(res){ try { return res.json(); } catch(e){ return null; } }
 
-/* ===== backend reachability / status ===== */
-async function pingBackend(){
+// UI elements
+const status = document.getElementById("status");
+const headerPrices = document.getElementById("header-prices");
+const deepScanBtn = document.getElementById("deepScanBtn");
+const autoScanBtn = document.getElementById("autoScanBtn");
+const autoTradeBtn = document.getElementById("autoTradeBtn");
+const modeBtn = document.getElementById("modeBtn");
+const scannerBody = document.querySelector("#scanner tbody");
+const tradesBody = document.querySelector("#trades tbody");
+const balanceEl = document.getElementById("balance");
+
+let autoScan = false, autoTrade = false, demo = true;
+
+// ==== INIT ====
+(async function init() {
   try {
-    const r = await fetch(API_BASE + "/");
-    if (!r.ok) throw new Error("bad");
-    $("#backendStatus").innerText = "Backend connected";
-    return true;
-  } catch(e){
-    $("#backendStatus").innerText = "Backend not reachable";
-    return false;
+    const r = await getJson(`${BACKEND}/api/header`);
+    updateHeader(r);
+    status.innerText = "Backend connected ✅";
+    setInterval(() => loadHeader(), 7000);
+    loadBalance();
+    loadTrades();
+    setInterval(loadTrades, 5000);
+  } catch(e) {
+    status.innerText = "Backend not reachable ❌";
+  }
+})();
+
+// ==== HEADER ====
+async function loadHeader() {
+  try {
+    const r = await getJson(`${BACKEND}/api/header`);
+    updateHeader(r);
+  } catch(e) {
+    console.error("Header fetch error", e);
   }
 }
-
-/* ===== top tickers (prefer backend /api/header else direct Bitget) ===== */
-async function refreshTopTickers(){
-  try {
-    // try backend header
-    const r = await fetch(API_BASE + "/header");
-    if (r.ok) {
-      const j = await r.json();
-      // expected j = [{ symbol, price }, ...] or simplified ids
-      const map = {};
-      j.forEach(x => {
-        if (x.symbol) map[x.symbol.replace(/USDT$/,'')] = x.price || x.current_price || x.price;
-        else if (x.id) {
-          if (x.id==='bitcoin') map['BTC'] = x.price || x.current_price;
-          if (x.id==='ethereum') map['ETH'] = x.price || x.current_price;
-          if (x.id==='binancecoin') map['BNB'] = x.price || x.current_price;
-        }
-      });
-      document.getElementById("tick_btc").innerText = map.BTC ? Number(map.BTC).toLocaleString() : "--";
-      document.getElementById("tick_eth").innerText = map.ETH ? Number(map.ETH).toLocaleString() : "--";
-      document.getElementById("tick_bnb").innerText = map.BNB ? Number(map.BNB).toLocaleString() : "--";
-      return;
-    }
-  } catch(e){ /* ignore and fallback */ }
-
-  // fallback: Bitget public tickers
-  try {
-    const pairList = "BTCUSDT,ETHUSDT,BNBUSDT";
-    // Bitget public API endpoint for tickers (non-signed)
-    const resp = await fetch(`https://api.bitget.com/api/spot/v1/market/tickers?symbols=${encodeURIComponent(JSON.stringify([ "BTCUSDT","ETHUSDT","BNBUSDT" ]))}`);
-    if (resp.ok){
-      const j = await resp.json();
-      // Bitget returns data items; adapt
-      const data = j.data || j;
-      (data||[]).forEach(t => {
-        if (t.symbol==="BTCUSDT") $("#tick_btc").innerText = Number(t.close || t.last || t.lastPrice || t.lastTradedPrice || 0).toLocaleString();
-        if (t.symbol==="ETHUSDT") $("#tick_eth").innerText = Number(t.close || t.last || 0).toLocaleString();
-        if (t.symbol==="BNBUSDT") $("#tick_bnb").innerText = Number(t.close || t.last || 0).toLocaleString();
-      });
-      return;
-    }
-  } catch(e){ /* ignore */ }
-
-  // last fallback = leave as is
+function updateHeader(data) {
+  headerPrices.innerHTML = data.map(x => `${x.symbol}: ${x.price}`).join(" | ");
 }
 
-/* ===== fetch scanner results / run scan ===== */
-async function loadScanResults(){
-  try {
-    const r = await fetch(API_BASE + "/scan/results");
-    if (!r.ok) throw new Error("scan results failed");
-    const arr = await r.json();
-    renderScanner(arr || []);
-    appendLog("Scan results loaded: " + (arr?.length || 0));
-  } catch(e){
-    appendLog("Scan load error: " + e.message);
-  }
-}
+// ==== SCAN ====
+deepScanBtn.onclick = async () => {
+  const data = await getJson(`${BACKEND}/api/scan/run`, "POST");
+  renderScanner(data);
+};
 
-async function runDeepScan(){
-  appendLog("Triggering deep scan...");
-  try {
-    const r = await fetch(API_BASE + "/scan/run", { method: "POST" });
-    if (!r.ok) {
-      const text = await r.text();
-      appendLog("Scan run failed: " + r.status + " " + text);
-      return;
-    }
-    const arr = await r.json();
-    renderScanner(arr || []);
-    appendLog("Deep scan finished: " + (arr?.length || 0));
-  } catch(e){
-    appendLog("Scan run error: " + e.message);
-  }
-}
-
-/* ===== render scanner table (click to expand) ===== */
-function renderScanner(list){
-  const tbody = document.getElementById("scannerBody");
-  tbody.innerHTML = "";
-  list.forEach(item => {
-    // expect item: { symbol, score, entry, tp, tp1,tp2,tp3, reasons, potential_pct, est_hours }
+function renderScanner(data) {
+  scannerBody.innerHTML = "";
+  data.forEach(x => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td class="symbol clickable">${item.symbol}</td>
-      <td>${item.score ?? "-"}</td>
-      <td>${item.entry?.toFixed?.(8) ?? item.entry ?? "-"}</td>
-      <td>${(item.tp1??(item.entry*1.10))?.toFixed?.(8)??"-"} / ${(item.tp2??(item.entry*1.15))?.toFixed?.(8)??"-"} / ${(item.tp3??(item.entry*1.25))?.toFixed?.(8)??"-"}</td>
-      <td>${(item.potential_pct ?? calculatePotentialPct(item)).toFixed(2)}%</td>
-      <td>${item.est_hours ? (item.est_hours + "h") : calculateEstTime(item)}</td>
-      <td><button class="btn-small" data-buy="${item.symbol}">Buy</button></td>
-    `;
-    tbody.appendChild(tr);
-
-    // details row (hidden)
-    const dr = document.createElement("tr");
-    const dcell = document.createElement("td");
-    dcell.colSpan = 7;
-    dcell.className = "detail-row";
-    dcell.style.display = "none";
-    dcell.innerHTML = `<strong>Reasons / indicators:</strong><br/><pre style="white-space:pre-wrap;margin:6px 0">${(item.reasons || item.indicators || item.details || "No details provided")}</pre>
-      <div style="display:flex;gap:8px"><small>TP1:</small> <b>${(item.tp1??(item.entry*1.10))?.toFixed?.(8)??"-"}</b> &nbsp;
-      <small>TP2:</small> <b>${(item.tp2??(item.entry*1.15))?.toFixed?.(8)??"-"}</b> &nbsp;
-      <small>TP3:</small> <b>${(item.tp3??(item.entry*1.25))?.toFixed?.(8)??"-"}</b></div>`;
-    dr.appendChild(dcell);
-    tbody.appendChild(dr);
-
-    // click toggles
-    tr.querySelector(".symbol").addEventListener("click", () => {
-      dcell.style.display = dcell.style.display === "none" ? "block" : "none";
-    });
-
-    // buy button
-    tr.querySelector("button[data-buy]").addEventListener("click", async (e) => {
-      const sym = e.target.dataset.buy;
-      await buySymbol(sym);
-    });
+      <td>${x.symbol}</td>
+      <td>${x.entry}</td>
+      <td>${x.tp1}</td>
+      <td>${x.tp2}</td>
+      <td>${x.tp3}</td>
+      <td>${x.potential_pct}%</td>
+      <td>${x.est_hours}h</td>
+      <td>${x.score}</td>
+      <td><button onclick="buyCoin('${x.symbol}')">BUY</button></td>`;
+    scannerBody.appendChild(tr);
   });
 }
 
-/* helper fallback calculators */
-function calculatePotentialPct(item){
-  try{
-    const entry = Number(item.entry);
-    const tp = (item.tp3 || item.tp || entry*(1+0.10));
-    return ((tp - entry) / entry) * 100;
-  }catch(e){return 0;}
-}
-function calculateEstTime(item){
-  if (item && item.score) {
-    if (item.score >= 9) return "12h-24h";
-    if (item.score >= 7) return "24h-48h";
-    return "48h+";
-  }
-  return "-";
-}
-
-/* ===== trades / wallet ===== */
-let lastPnlBySymbol = {}; // for blinking detection
-async function loadTrades(){
+// ==== TRADES ====
+async function loadTrades() {
   try {
-    const r = await fetch(API_BASE + "/trades");
-    if (!r.ok) throw new Error("trades fetch failed");
-    const arr = await r.json();
-    renderTrades(arr || []);
-  } catch(e){
-    appendLog("Trades load error: " + e.message);
+    const r = await getJson(`${BACKEND}/api/trades`);
+    renderTrades(r);
+  } catch(e) {
+    console.error("Trades load error", e);
   }
 }
-
-function renderTrades(list){
-  const tbody = document.getElementById("tradesBody");
-  const filter = document.getElementById("tradeFilter").value;
-  tbody.innerHTML = "";
-  (list || []).forEach(t => {
-    if (filter === "open" && t.status !== "OPEN") return;
-    if (filter === "closed" && t.status === "OPEN") return;
-
-    const latest = t.latest_price ?? "-";
-    const pnlVal = typeof t.unreal_pnl !== "undefined" ? t.unreal_pnl : (t.pnl || 0);
-    const pnlText = typeof pnlVal === "number" ? (pnlVal > 0 ? "+"+pnlVal.toFixed(6) : pnlVal.toFixed(6)) : pnlVal;
-
+function renderTrades(list) {
+  tradesBody.innerHTML = "";
+  list.forEach(t => {
     const tr = document.createElement("tr");
+    const pnlColor = t.unreal_pnl >= 0 ? "#0f0" : "#f33";
     tr.innerHTML = `
       <td>${t.symbol}</td>
-      <td>${t.entry_price?.toFixed?.(8) ?? t.entry_price ?? "-"}</td>
-      <td id="latest_${t.symbol}">${(latest && latest.toFixed) ? Number(latest).toFixed(8) : (latest || "-")}</td>
-      <td id="pnl_${t.symbol}" class="trade-pnl">${pnlText}</td>
-      <td>${t.exit_price ? Number(t.exit_price).toFixed(8) : "-"}</td>
+      <td>${t.entry_price.toFixed(4)}</td>
+      <td>${(t.latest_price || 0).toFixed(4)}</td>
+      <td style="color:${pnlColor}">${t.unreal_pnl?.toFixed(2) || 0}%</td>
       <td>${t.status}</td>
-      <td>${t.status==="OPEN" ? `<button class="btn-small" data-close="${t.id}">Sell</button>` : "-"}</td>
-    `;
-    tbody.appendChild(tr);
-
-    // attach close
-    const closeBtn = tr.querySelector("button[data-close]");
-    if (closeBtn) closeBtn.addEventListener("click", async (e) => { await closeTrade(e.target.dataset.close); });
-
-    // blinking logic: compare lastPnlBySymbol
-    const key = t.symbol;
-    const lastVal = lastPnlBySymbol[key];
-    const nowVal = typeof t.unreal_pnl !== "undefined" ? t.unreal_pnl : (t.pnl || 0);
-    if (lastVal !== undefined && nowVal !== lastVal) {
-      const el = document.getElementById(`pnl_${t.symbol}`);
-      if (el) {
-        if (nowVal > lastVal) { el.classList.remove("blink-red"); el.classList.add("blink-green"); setTimeout(()=>el.classList.remove("blink-green"),900); }
-        else { el.classList.remove("blink-green"); el.classList.add("blink-red"); setTimeout(()=>el.classList.remove("blink-red"),900); }
-      }
-    }
-    lastPnlBySymbol[key] = nowVal;
+      <td>${t.status === "OPEN" ? `<button onclick="sellTrade('${t.id}')">SELL</button>` : '-'}</td>`;
+    tradesBody.appendChild(tr);
   });
 }
 
-/* ===== buy/sell actions ===== */
-async function buySymbol(symbol){
-  try {
-    appendLog("Buy requested " + symbol);
-    const r = await fetch(API_BASE + "/trade/buy", { method: "POST", headers: {'Content-Type':'application/json'}, body: JSON.stringify({ symbol, percent: undefined }) });
-    const j = await r.json();
-    if (r.ok && j.ok) {
-      appendLog("Buy placed: " + (j.trade?.id || j.trade?.symbol || JSON.stringify(j)));
-      await loadTrades(); await loadBalance();
-    } else {
-      appendLog("Buy error: " + JSON.stringify(j || (await r.text())));
-    }
-  } catch(e){
-    appendLog("Buy error: " + e.message);
-  }
+// ==== BALANCE ====
+async function loadBalance() {
+  const r = await getJson(`${BACKEND}/api/balance`);
+  balanceEl.innerText = r.balance?.USDT?.toFixed(2) || "0.00";
 }
 
-async function closeTrade(tradeId){
-  try {
-    appendLog("Sell requested " + tradeId);
-    const r = await fetch(API_BASE + "/trade/sell", { method: "POST", headers: {'Content-Type':'application/json'}, body: JSON.stringify({ trade_id: tradeId }) });
-    const j = await r.json();
-    if (r.ok && j.ok) {
-      appendLog("Sell executed: " + tradeId);
-      await loadTrades(); await loadBalance();
-    } else {
-      appendLog("Sell error: " + JSON.stringify(j || (await r.text())));
-    }
-  } catch(e){
-    appendLog("Sell error: " + e.message);
-  }
+// ==== BUY / SELL ====
+async function buyCoin(sym) {
+  await getJson(`${BACKEND}/api/trade/buy`, "POST", { symbol: sym });
+  await loadTrades(); await loadBalance();
+}
+async function sellTrade(id) {
+  await getJson(`${BACKEND}/api/trade/sell`, "POST", { trade_id: id });
+  await loadTrades(); await loadBalance();
 }
 
-/* ===== live price + PnL updater ===== */
-async function updateLivePricesAndPnL(){
-  try {
-    // get trades so we know which symbols to update
-    const r = await fetch(API_BASE + "/trades");
-    if (!r.ok) return;
-    const trades = await r.json();
-    const symbols = Array.from(new Set((trades || []).filter(t=>t.status==="OPEN").map(t=>t.symbol)));
-    if (!symbols.length) return;
-
-    // batch fetch: try bitget tickers endpoint for each symbol
-    for (const sym of symbols) {
-      try {
-        // Bitget doesn't have single simple anonymous per-symbol endpoint consistent; many endpoints vary.
-        // We'll try coinGecko fallback if backend doesn't provide latest in /trades.
-        const resp = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}`).catch(()=>null);
-        let latest = null;
-        if (resp && resp.ok) {
-          const j = await resp.json();
-          latest = Number(j.price);
-        } else {
-          // fallback to backend ticker endpoint if exists
-          const r2 = await fetch(API_BASE + "/ticker?symbol=" + encodeURIComponent(sym)).catch(()=>null);
-          if (r2 && r2.ok) {
-            const j2 = await r2.json();
-            latest = Number(j2.price || j2.data?.last || j2.data?.close);
-          }
-        }
-        if (latest) {
-          const latestEl = document.getElementById("latest_" + sym);
-          const pnlEl = document.getElementById("pnl_" + sym);
-          if (latestEl) latestEl.innerText = Number(latest).toFixed(8);
-          // compute PnL (if trade open)
-          const trade = trades.find(t=>t.symbol===sym && t.status==="OPEN");
-          if (trade) {
-            const invested = trade.invested ?? (trade.entry_price * trade.qty) || 0;
-            const gross = trade.qty * latest;
-            const sellFee = gross * ((parseFloat(trade.sell_fee || 0) || 0) / (trade.gross_proceeds || gross) || 0) || 0;
-            const pnl = +(gross - sellFee - invested);
-            if (pnlEl) {
-              const prev = parseFloat(pnlEl.innerText) || 0;
-              pnlEl.innerText = pnl.toFixed(6);
-              if (pnl > prev) { pnlEl.classList.add("blink-green"); setTimeout(()=>pnlEl.classList.remove("blink-green"),900); }
-              else if (pnl < prev) { pnlEl.classList.add("blink-red"); setTimeout(()=>pnlEl.classList.remove("blink-red"),900); }
-            }
-          }
-        }
-      } catch(e){
-        // skip per-symbol errors
+// ==== AUTO TOGGLES ====
+autoScanBtn.onclick = async () => {
+  autoScan = !autoScan;
+  autoScanBtn.innerText = `Auto Scan: ${autoScan ? "ON" : "OFF"}`;
+  if (autoScan) {
+    setInterval(async () => {
+      const r = await getJson(`${BACKEND}/api/scan/run`, "POST");
+      renderScanner(r);
+      if (autoTrade) {
+        for (const coin of r.slice(0, 3)) await buyCoin(coin.symbol);
       }
-    }
-  } catch(e){
-    // ignore
+    }, 10000);
   }
-}
-
-/* ===== balance ===== */
-async function loadBalance(){
-  try {
-    const r = await fetch(API_BASE + "/balance");
-    if (!r.ok) return;
-    const j = await r.json();
-    const bal = j.balance?.USDT ?? (j.balance ?? j).USDT ?? (j.balance ?? j).usdt ?? j.usdt ?? 0;
-    $("#balanceUSDT").innerText = Number(bal).toFixed(2);
-  } catch(e){
-    appendLog("Balance error: " + e.message);
-  }
-}
-
-/* ===== auto scan / auto trade toggles ===== */
-async function loadAutoStates(){
-  try {
-    const r1 = await fetch(API_BASE + "/auto"); // expects {auto:bool}
-    if (r1.ok) {
-      const j1 = await r1.json();
-      $("#autoScanBtn").innerText = j1.auto ? "Auto Scan: ON" : "Auto Scan: OFF";
-    }
-    const r2 = await fetch(API_BASE + "/mode"); // expects {demo:bool}
-    if (r2.ok) {
-      const j2 = await r2.json();
-      $("#modeText").innerText = j2.demo ? "Demo" : "Live";
-    }
-  } catch(e){ /* ignore */ }
-}
-
-/* toggle auto-trade (uses /api/auto as simple control) */
-async function toggleAutoScan(){
-  try {
-    const cur = $("#autoScanBtn").innerText.includes("ON");
-    const r = await fetch(API_BASE + "/auto", { method: "POST", headers: {'Content-Type':'application/json'}, body: JSON.stringify({ enabled: !cur })});
-    if (r.ok) { const j = await r.json(); $("#autoScanBtn").innerText = j.auto ? "Auto Scan: ON" : "Auto Scan: OFF"; appendLog("Auto scan set → " + j.auto); }
-  } catch(e){ appendLog("Auto scan toggle error: " + e.message); }
-}
-async function toggleAutoTrade(){
-  try {
-    const cur = $("#autoTradeBtn").innerText.includes("ON");
-    // this needs backend endpoint: /api/autoTrade or reuse /api/auto with different flag
-    const r = await fetch(API_BASE + "/auto", { method: "POST", headers: {'Content-Type':'application/json'}, body: JSON.stringify({ enabled: !cur, type: "trade" })});
-    if (r.ok) {
-      const j = await r.json();
-      $("#autoTradeBtn").innerText = j.auto ? "Auto Trade: ON" : "Auto Trade: OFF";
-      appendLog("Auto trade set → " + j.auto);
-    }
-  } catch(e){ appendLog("Auto trade toggle error: " + e.message); }
-}
-
-/* ===== UI wiring ===== */
-document.getElementById("deepScanBtn").addEventListener("click", runDeepScan);
-document.getElementById("refreshBtn").addEventListener("click", () => { loadScanResults(); loadTrades(); loadBalance(); refreshTopTickers(); });
-document.getElementById("autoScanBtn").addEventListener("click", toggleAutoScan);
-document.getElementById("autoTradeBtn").addEventListener("click", toggleAutoTrade);
-document.getElementById("modeToggleBtn").addEventListener("click", async () => {
-  try {
-    // flip mode: expects backend /api/mode POST { demo: true/false } or fallback
-    const cur = document.getElementById("modeText").innerText === "Demo";
-    await fetch(API_BASE + "/mode", { method: "POST", headers: {'Content-Type':'application/json'}, body: JSON.stringify({ demo: !cur })});
-    await loadAutoStates();
-  } catch(e){ appendLog("Mode toggle error: " + e.message); }
-});
-document.getElementById("settingsBtn").addEventListener("click", ()=>document.getElementById("settingsModal").style.display="block");
-document.getElementById("closeSettingsBtn").addEventListener("click", ()=>document.getElementById("settingsModal").style.display="none");
-document.getElementById("saveSettingsBtn").addEventListener("click", ()=>{
-  // save locally; ideally send to backend via /api/settings
-  const tp = Number(document.getElementById("setTP").value||10);
-  const tp2 = Number(document.getElementById("setTP2").value||15);
-  const tp3 = Number(document.getElementById("setTP3").value||25);
-  const invest = Number(document.getElementById("setInvest").value||5);
-  appendLog(`Settings saved TP:${tp} TP2:${tp2} TP3:${tp3} invest:${invest}`);
-  document.getElementById("settingsModal").style.display="none";
-});
-
-/* ===== periodic refresh loops ===== */
-setInterval(async () => { await pingBackend(); await refreshTopTickers(); }, 5000);
-setInterval(async () => { await loadTrades(); }, 5000);
-setInterval(async () => { await updateLivePricesAndPnL(); }, 5000); // keep PnL lively
-setInterval(async () => { await loadScanResults(); }, 60 * 1000); // refresh scans every 60s
-
-/* initial load */
-(async function init(){
-  await pingBackend();
-  await refreshTopTickers();
-  await loadAutoStates();
-  await loadScanResults();
-  await loadTrades();
-  await loadBalance();
-  appendLog("UI initialized");
-})();
+};
+autoTradeBtn.onclick = () => {
+  autoTrade = !autoTrade;
+  autoTradeBtn.innerText = `Auto Trade: ${autoTrade ? "ON" : "OFF"}`;
+};
+modeBtn.onclick = async () => {
+  demo = !demo;
+  await getJson(`${BACKEND}/api/mode`, "POST", { demo });
+  modeBtn.innerText = `Mode: ${demo ? "DEMO" : "LIVE"}`;
+};
 </script>
 </body>
 </html>
