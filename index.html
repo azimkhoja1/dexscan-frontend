@@ -1,267 +1,191 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DexScan PRO - Bitget AI Trader</title>
-  <style>
-    body {
-      background: #0a0a0a;
-      color: #eee;
-      font-family: "Segoe UI", sans-serif;
-      margin: 0;
-      padding: 0;
-      overflow-x: hidden;
-    }
-    header {
-      background: #111;
-      padding: 12px 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      box-shadow: 0 0 10px #000;
-    }
-    h1 {
-      font-size: 20px;
-      color: #0ff;
-    }
-    #status {
-      color: #999;
-      font-size: 14px;
-    }
-    #header-prices {
-      font-size: 15px;
-      color: #0ff;
-      display: flex;
-      gap: 15px;
-    }
-    .container {
-      padding: 20px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-      background: #151515;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-    th, td {
-      padding: 10px;
-      border-bottom: 1px solid #333;
-      text-align: left;
-      font-size: 14px;
-    }
-    th {
-      background: #222;
-    }
-    tr:hover {
-      background: #1e1e1e;
-    }
-    button {
-      background: #0ff;
-      color: #000;
-      border: none;
-      border-radius: 5px;
-      padding: 5px 10px;
-      cursor: pointer;
-    }
-    button:hover { background: #09f; color: #fff; }
-    .controls {
-      margin-bottom: 15px;
-    }
-    .autoOn { color: #0f0; }
-    .autoOff { color: #f00; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DexScan PRO</title>
+<style>
+  body {
+    background-color: #0c0c0c;
+    color: #fff;
+    font-family: 'Segoe UI', sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+  header {
+    background: #111;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    border-bottom: 1px solid #333;
+  }
+  .title {
+    font-weight: bold;
+    color: cyan;
+    font-size: 1.2em;
+  }
+  .header-prices {
+    font-size: 0.95em;
+    color: #0ff;
+  }
+  .status {
+    font-size: 0.85em;
+    color: #0f0;
+  }
+  main {
+    padding: 15px;
+  }
+  .controls {
+    margin-bottom: 20px;
+  }
+  button {
+    background: cyan;
+    border: none;
+    color: #000;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 5px;
+    margin-right: 10px;
+    cursor: pointer;
+  }
+  button:hover { opacity: 0.8; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+  }
+  th, td {
+    border: 1px solid #333;
+    padding: 8px;
+    text-align: center;
+  }
+  th {
+    background: #1a1a1a;
+    color: #0ff;
+  }
+  #balance {
+    margin-top: 10px;
+    font-size: 0.95em;
+    color: #0ff;
+  }
+</style>
 </head>
-
 <body>
-  <header>
-    <h1>DexScan PRO</h1>
-    <div id="header-prices">BTC: -- | ETH: -- | BNB: --</div>
-    <div id="status">Connecting backend...</div>
-  </header>
 
-  <div class="container">
-    <div class="controls">
-      <button id="deepScanBtn">🔍 Deep Scan</button>
-      <button id="autoScanBtn">Auto Scan: OFF</button>
-      <button id="autoTradeBtn">Auto Trade: OFF</button>
-      <button id="modeBtn">Mode: DEMO</button>
-    </div>
+<header>
+  <div class="title">DexScan PRO</div>
+  <div class="header-prices">BTC: -- | ETH: -- | BNB: --</div>
+  <div class="status" id="backend-status">Backend: Checking...</div>
+</header>
 
-    <h3>📊 Scanner Results</h3>
-    <table id="scanner">
-      <thead>
-        <tr>
-          <th>Symbol</th><th>Entry</th><th>TP1</th><th>TP2</th><th>TP3</th>
-          <th>Potential</th><th>Hours</th><th>Score</th><th>Action</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-
-    <h3>💼 Trades & Wallet</h3>
-    <table id="trades">
-      <thead>
-        <tr><th>Symbol</th><th>Entry</th><th>Latest</th><th>PNL%</th><th>Status</th><th>Action</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-
-    <p>Balance: <span id="balance">--</span> USDT</p>
+<main>
+  <div class="controls">
+    <button id="deep-scan">🔍 Deep Scan</button>
+    <button id="auto-scan">Auto Scan: OFF</button>
+    <button id="auto-trade">Auto Trade: OFF</button>
+    <button id="mode-toggle">Mode: DEMO</button>
   </div>
 
-<script>
-const BACKEND = "https://dexscan-backend.onrender.com";  // ✅ Your actual backend root
+  <h3>📊 Scanner Results</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Symbol</th><th>Entry</th><th>TP1</th><th>TP2</th><th>TP3</th><th>Potential</th><th>Hours</th><th>Score</th>
+      </tr>
+    </thead>
+    <tbody id="scanner-body"><tr><td colspan="8">Waiting...</td></tr></tbody>
+  </table>
 
-async function getJson(url, method="GET", body=null) {
-  const opt = { method, headers: { "Content-Type": "application/json" }};
-  if (body) opt.body = JSON.stringify(body);
-  const r = await fetch(url, opt);
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
+  <h3>💼 Trades & Wallet</h3>
+  <div id="balance">Balance: 10000.00 USDT</div>
+</main>
+
+<script>
+const BACKEND = "https://dexscan-backend.onrender.com";
+const headerEl = document.querySelector('.header-prices');
+const statusEl = document.getElementById('backend-status');
+const tableBody = document.getElementById('scanner-body');
+const deepScanBtn = document.getElementById('deep-scan');
+const autoScanBtn = document.getElementById('auto-scan');
+const modeBtn = document.getElementById('mode-toggle');
+const balanceEl = document.getElementById('balance');
+
+let autoScan = false;
+
+// ---- Backend Status ----
+async function checkBackend() {
+  try {
+    const res = await fetch(`${BACKEND}/`);
+    if (res.ok) statusEl.innerHTML = 'Backend connected ✅';
+    else throw new Error();
+  } catch {
+    statusEl.innerHTML = 'Backend not reachable ❌';
+  }
 }
 
-// UI elements
-const status = document.getElementById("status");
-const headerPrices = document.getElementById("header-prices");
-const deepScanBtn = document.getElementById("deepScanBtn");
-const autoScanBtn = document.getElementById("autoScanBtn");
-const autoTradeBtn = document.getElementById("autoTradeBtn");
-const modeBtn = document.getElementById("modeBtn");
-const scannerBody = document.querySelector("#scanner tbody");
-const tradesBody = document.querySelector("#trades tbody");
-const balanceEl = document.getElementById("balance");
-
-let autoScan = false, autoTrade = false, demo = true;
-
-// ==== INIT ====
-(async function init() {
-  try {
-    const r = await getJson(`${BACKEND}/api/header`);
-    updateHeader(r);
-    status.innerText = "Backend connected ✅";
-    setInterval(() => loadHeader(), 7000);
-    loadBalance();
-    loadTrades();
-    setInterval(loadTrades, 5000);
-  } catch(e) {
-    status.innerText = "Backend not reachable ❌";
-  }
-})();
-
-// ==== HEADER ====
+// ---- Header Prices ----
 async function loadHeader() {
   try {
-    const r = await getJson(`${BACKEND}/api/header`);
-    updateHeader(r);
-  } catch(e) {
-    console.error("Header fetch error", e);
+    const res = await fetch(`${BACKEND}/api/header`);
+    const data = await res.json();
+    headerEl.textContent = `BTC: ${data.btc || '--'} | ETH: ${data.eth || '--'} | BNB: ${data.bnb || '--'}`;
+  } catch {
+    headerEl.textContent = `BTC: -- | ETH: -- | BNB: --`;
   }
 }
-function updateHeader(data) {
+
+// ---- Deep Scan ----
+async function deepScan() {
   try {
-    if (!Array.isArray(data)) {
-      // Fixes the bug where raw text or long JSON prints on top
-      console.warn("Invalid header data:", data);
-      headerPrices.innerHTML = "BTC: -- | ETH: -- | BNB: --";
+    tableBody.innerHTML = "<tr><td colspan='8'>Scanning...</td></tr>";
+    const res = await fetch(`${BACKEND}/api/coins`);
+    const coins = await res.json();
+    if (!coins.length) {
+      tableBody.innerHTML = "<tr><td colspan='8'>No coins found</td></tr>";
       return;
     }
-    headerPrices.innerHTML = data
-      .slice(0, 3)
-      .map(x => `${x.symbol}: ${parseFloat(x.price).toFixed(2)}`)
-      .join(" | ");
-  } catch (e) {
-    console.error("Header parse error:", e);
-    headerPrices.innerHTML = "BTC: -- | ETH: -- | BNB: --";
+    tableBody.innerHTML = coins.map(c => `
+      <tr>
+        <td>${c.symbol}</td>
+        <td>${parseFloat(c.entry).toFixed(8)}</td>
+        <td>${parseFloat(c.tp1).toFixed(8)}</td>
+        <td>${parseFloat(c.tp2).toFixed(8)}</td>
+        <td>${parseFloat(c.tp3).toFixed(8)}</td>
+        <td>${c.potential}</td>
+        <td>${c.hours}h</td>
+        <td>${c.score}</td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    tableBody.innerHTML = "<tr><td colspan='8'>Error loading coins</td></tr>";
   }
 }
 
-
-function renderScanner(data) {
-  scannerBody.innerHTML = "";
-  data.forEach(x => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${x.symbol}</td>
-      <td>${x.entry}</td>
-      <td>${x.tp1}</td>
-      <td>${x.tp2}</td>
-      <td>${x.tp3}</td>
-      <td>${x.potential_pct}%</td>
-      <td>${x.est_hours}h</td>
-      <td>${x.score}</td>
-      <td><button onclick="buyCoin('${x.symbol}')">BUY</button></td>`;
-    scannerBody.appendChild(tr);
-  });
-}
-
-// ==== TRADES ====
-async function loadTrades() {
-  try {
-    const r = await getJson(`${BACKEND}/api/trades`);
-    renderTrades(r);
-  } catch(e) {
-    console.error("Trades load error", e);
-  }
-}
-function renderTrades(list) {
-  tradesBody.innerHTML = "";
-  list.forEach(t => {
-    const tr = document.createElement("tr");
-    const pnlColor = t.unreal_pnl >= 0 ? "#0f0" : "#f33";
-    tr.innerHTML = `
-      <td>${t.symbol}</td>
-      <td>${t.entry_price.toFixed(4)}</td>
-      <td>${(t.latest_price || 0).toFixed(4)}</td>
-      <td style="color:${pnlColor}">${t.unreal_pnl?.toFixed(2) || 0}%</td>
-      <td>${t.status}</td>
-      <td>${t.status === "OPEN" ? `<button onclick="sellTrade('${t.id}')">SELL</button>` : '-'}</td>`;
-    tradesBody.appendChild(tr);
-  });
-}
-
-// ==== BALANCE ====
-async function loadBalance() {
-  const r = await getJson(`${BACKEND}/api/balance`);
-  balanceEl.innerText = r.balance?.USDT?.toFixed(2) || "0.00";
-}
-
-// ==== BUY / SELL ====
-async function buyCoin(sym) {
-  await getJson(`${BACKEND}/api/trade/buy`, "POST", { symbol: sym });
-  await loadTrades(); await loadBalance();
-}
-async function sellTrade(id) {
-  await getJson(`${BACKEND}/api/trade/sell`, "POST", { trade_id: id });
-  await loadTrades(); await loadBalance();
-}
-
-// ==== AUTO TOGGLES ====
-autoScanBtn.onclick = async () => {
+// ---- Auto Scan ----
+autoScanBtn.addEventListener("click", () => {
   autoScan = !autoScan;
-  autoScanBtn.innerText = `Auto Scan: ${autoScan ? "ON" : "OFF"}`;
-  if (autoScan) {
-    setInterval(async () => {
-      const r = await getJson(`${BACKEND}/api/scan/run`, "POST");
-      renderScanner(r);
-      if (autoTrade) {
-        for (const coin of r.slice(0, 3)) await buyCoin(coin.symbol);
-      }
-    }, 10000);
-  }
-};
-autoTradeBtn.onclick = () => {
-  autoTrade = !autoTrade;
-  autoTradeBtn.innerText = `Auto Trade: ${autoTrade ? "ON" : "OFF"}`;
-};
-modeBtn.onclick = async () => {
-  demo = !demo;
-  await getJson(`${BACKEND}/api/mode`, "POST", { demo });
-  modeBtn.innerText = `Mode: ${demo ? "DEMO" : "LIVE"}`;
-};
+  autoScanBtn.textContent = `Auto Scan: ${autoScan ? "ON" : "OFF"}`;
+  if (autoScan) startAutoScan();
+});
+function startAutoScan() {
+  if (!autoScan) return;
+  deepScan();
+  setTimeout(startAutoScan, 60000);
+}
+
+// ---- Mode Toggle ----
+modeBtn.addEventListener("click", () => {
+  const current = modeBtn.textContent.includes("DEMO") ? "LIVE" : "DEMO";
+  modeBtn.textContent = `Mode: ${current}`;
+});
+
+// ---- Events ----
+deepScanBtn.addEventListener("click", deepScan);
+setInterval(loadHeader, 15000);
+checkBackend();
+loadHeader();
+deepScan();
 </script>
 </body>
 </html>
-
