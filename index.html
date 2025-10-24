@@ -161,14 +161,23 @@ async function loadHeader() {
   }
 }
 function updateHeader(data) {
-  headerPrices.innerHTML = data.map(x => `${x.symbol}: ${x.price}`).join(" | ");
+  try {
+    if (!Array.isArray(data)) {
+      // Fixes the bug where raw text or long JSON prints on top
+      console.warn("Invalid header data:", data);
+      headerPrices.innerHTML = "BTC: -- | ETH: -- | BNB: --";
+      return;
+    }
+    headerPrices.innerHTML = data
+      .slice(0, 3)
+      .map(x => `${x.symbol}: ${parseFloat(x.price).toFixed(2)}`)
+      .join(" | ");
+  } catch (e) {
+    console.error("Header parse error:", e);
+    headerPrices.innerHTML = "BTC: -- | ETH: -- | BNB: --";
+  }
 }
 
-// ==== SCAN ====
-deepScanBtn.onclick = async () => {
-  const data = await getJson(`${BACKEND}/api/scan/run`, "POST");
-  renderScanner(data);
-};
 
 function renderScanner(data) {
   scannerBody.innerHTML = "";
@@ -255,3 +264,4 @@ modeBtn.onclick = async () => {
 </script>
 </body>
 </html>
+
