@@ -1,334 +1,534 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DexScan V3.5 — Bitget Bot</title>
-  <link rel="icon" href="data:,">
-  <style>
-    :root {
-      --bg: #071226;
-      --card: #0f2430;
-      --muted: #9fb0b9;
-      --accent: #16a085;
-      --danger: #e74c3c;
-    }
-    body {
-      margin: 0;
-      font-family: Inter, Segoe UI, Arial, sans-serif;
-      background: linear-gradient(180deg, #041024, #071020);
-      color: #e6f0f0;
-    }
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 18px;
-    }
-    .card {
-      background: var(--card);
-      border-radius: 10px;
-      padding: 12px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    }
-    .center {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-    }
-    .login-card {
-      background: var(--card);
-      padding: 24px;
-      border-radius: 12px;
-      width: 360px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-    }
-    input, button {
-      width: 100%;
-      padding: 10px;
-      margin: 6px 0;
-      border-radius: 8px;
-      border: 0;
-    }
-    button {
-      background: var(--accent);
-      color: white;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .btn { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 8px 10px; cursor: pointer; }
-    .btn.gray { background: #22343a; }
-    .btn.red { background: var(--danger); }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 8px;
-      font-size: 13px;
-    }
-    th, td {
-      padding: 8px;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-      text-align: left;
-    }
-    th { color: var(--muted); font-size: 12px; }
-    #log { height: 120px; overflow: auto; background: #071526; padding: 8px; border-radius: 6px; margin-top: 10px; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>DexScan — Live Scanner & Trader</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #041024;
+    --card: #0f2430;
+    --muted: #9fb0b9;
+    --accent: #16a085;
+    --danger: #e74c3c;
+    --good: #28c76f;
+  }
+  html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(180deg,#041024,#071020);color:#e6f0f0}
+  header{display:flex;justify-content:space-between;align-items:center;padding:12px 20px}
+  h1{margin:0;font-size:18px}
+  .top-tickers{font-size:13px;color:var(--muted);display:flex;gap:16px;align-items:center}
+  .container{display:flex;gap:16px;padding:18px}
+  .col-left{width:340px}
+  .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,0.6)}
+  .controls{display:flex;gap:8px;flex-wrap:wrap}
+  button{background:var(--accent);border:none;color:white;padding:8px 12px;border-radius:8px;cursor:pointer}
+  button.ghost{background:#1c2b30}
+  button.warn{background:var(--danger)}
+  .small{font-size:13px;color:var(--muted)}
+  #logs{height:260px;overflow:auto;margin-top:12px;background:#071526;padding:8px;border-radius:6px}
+  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px}
+  th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,0.03);vertical-align:middle;text-align:left}
+  th{color:var(--muted);font-size:12px}
+  .symbol{font-weight:700;color:#bfeee2;cursor:pointer}
+  .pill{background:#0d2a24;color:#7ee6cc;padding:4px 8px;border-radius:999px;font-size:12px}
+  .btn-small{padding:6px 8px;border-radius:6px}
+  .trade-pnl{font-weight:700}
+  .blink-green{animation:blinkGreen .9s linear}
+  .blink-red{animation:blinkRed .9s linear}
+  @keyframes blinkGreen{0%{background:transparent}50%{background:rgba(40,199,111,0.12)}100%{background:transparent}}
+  @keyframes blinkRed{0%{background:transparent}50%{background:rgba(231,76,60,0.12)}100%{background:transparent}}
+  .detail-row{background:rgba(0,0,0,0.05);font-size:13px;padding:8px;border-radius:6px;margin-top:6px}
+  .top-right{font-size:13px;color:var(--muted)}
+  .header-right{display:flex;gap:12px;align-items:center}
+  select,input{padding:8px;border-radius:8px;border:0;background:#0b2a2a;color:#e6f0f0}
+</style>
 </head>
 <body>
-  <div id="app"></div>
+
+<header>
+  <div style="display:flex;gap:16px;align-items:center">
+    <h1>DexScan — Bitget Bot</h1>
+    <div class="top-tickers">
+      <div>BTC: <b id="tick_btc">--</b></div>
+      <div>ETH: <b id="tick_eth">--</b></div>
+      <div>BNB: <b id="tick_bnb">--</b></div>
+      <div class="small" id="modeInfo">Mode: <b id="modeText">Demo</b></div>
+    </div>
+  </div>
+
+  <div class="header-right">
+    <div id="backendStatus" class="top-right">Backend not reachable</div>
+    <button id="logoutBtn" class="ghost" style="display:none">Logout</button>
+  </div>
+</header>
+
+<div class="container">
+  <div class="col-left">
+    <div class="card">
+      <h3 style="margin:0 0 6px 0">Controls</h3>
+      <div class="small" style="margin-bottom:8px">Auto-scan and auto-buy/auto-sell toggles are separate.</div>
+      <div class="controls">
+        <button id="deepScanBtn">🔍 Deep Scan</button>
+        <button id="autoScanBtn" class="ghost">Auto Scan: OFF</button>
+        <button id="autoTradeBtn" class="ghost">Auto Trade: OFF</button>
+        <button id="refreshBtn" class="ghost">🔄 Refresh</button>
+        <button id="modeToggleBtn" class="ghost">Switch Mode</button>
+        <button id="settingsBtn" class="ghost">⚙ Settings</button>
+      </div>
+
+      <div id="log" style="height:260px;overflow:auto;margin-top:12px;background:#071526;padding:8px;border-radius:6px;font-size:13px"></div>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;flex-direction:column;gap:12px">
+    <div class="card">
+      <h3 style="margin:0 0 8px 0">Scanner Results <span class="small" id="scannerSubtitle"></span></h3>
+      <table>
+        <thead>
+          <tr><th>Symbol</th><th>Score</th><th>Entry</th><th>TP1/TP2/TP3</th><th>Potential</th><th>ETA</th><th>Action</th></tr>
+        </thead>
+        <tbody id="scannerBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px 0">Trades & Wallet</h3>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="small">Balance: <b id="balanceUSDT">...</b></div>
+        <div>
+          <select id="tradeFilter">
+            <option value="all">All</option>
+            <option value="open">Open</option>
+            <option value="closed">Closed</option>
+          </select>
+        </div>
+      </div>
+
+      <table>
+        <thead><tr><th>Symbol</th><th>Entry</th><th>Latest</th><th>PNL</th><th>Exit</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="tradesBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal (simple) -->
+<div id="settingsModal" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:420px;z-index:9999">
+  <div class="card">
+    <h3>Settings</h3>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <label class="small">Take Profit % (TP): <input id="setTP" type="number" value="10" /></label>
+      <label class="small">TP2 %: <input id="setTP2" type="number" value="15" /></label>
+      <label class="small">TP3 %: <input id="setTP3" type="number" value="25" /></label>
+      <label class="small">Investment per trade (USD): <input id="setInvest" type="number" value="5" /></label>
+      <label class="small">Ignore stable pairs: <input id="ignoreStable" type="checkbox" checked /></label>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button id="saveSettingsBtn">Save</button>
+        <button id="closeSettingsBtn" class="ghost">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
-/* ===== CONFIG ===== */
-const BACKEND_ROOT = "https://dexscan-backend.onrender.com";
-const API = BACKEND_ROOT + "/api";
-const PRICE_FEED = "https://api.bitget.com/api/v2/market/tickers?symbol=";
+/* ===== CONFIG - set your backend root here ===== */
+const API_BASE = "https://dexscan-backend.onrender.com/api"; // <- REPLACE if different
 
-/* ===== AUTH ===== */
-function setToken(t){localStorage.setItem("dex_token", t);}
-function getToken(){return localStorage.getItem("dex_token");}
-function clearToken(){localStorage.removeItem("dex_token");}
+/* ===== helpers ===== */
+const $ = sel => document.querySelector(sel);
+const logEl = document.getElementById("log");
+function appendLog(msg){
+  const t = new Date().toLocaleTimeString() + " — " + msg;
+  logEl.innerHTML = t + "<br>" + logEl.innerHTML;
+}
+function safeJson(res){ try { return res.json(); } catch(e){ return null; } }
 
-/* ===== DOM ===== */
-const app = document.getElementById("app");
+/* ===== backend reachability / status ===== */
+async function pingBackend(){
+  try {
+    const r = await fetch(API_BASE + "/");
+    if (!r.ok) throw new Error("bad");
+    $("#backendStatus").innerText = "Backend connected";
+    return true;
+  } catch(e){
+    $("#backendStatus").innerText = "Backend not reachable";
+    return false;
+  }
+}
 
-/* ===== LOGIN ===== */
-function htmlLogin(){
-  app.innerHTML = `
-    <div class="center">
-      <div class="login-card">
-        <h2 style="margin:0 0 6px 0">DexScan Login</h2>
-        <input id="username" placeholder="Username" />
-        <input id="password" type="password" placeholder="Password" />
-        <button id="loginBtn">Login</button>
-        <div style="font-size:13px;color:#9fb0b9;margin-top:8px">
-          Demo user: dailybuy / dailyprofitinshallah!@#
-        </div>
-      </div>
-    </div>`;
-  document.getElementById("loginBtn").onclick = async () => {
-    const u = username.value.trim(), p = password.value.trim();
-    if(!u||!p) return alert("Enter username & password");
-    try {
-      const r = await fetch(API+"/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:u,password:p})});
+/* ===== top tickers (prefer backend /api/header else direct Bitget) ===== */
+async function refreshTopTickers(){
+  try {
+    // try backend header
+    const r = await fetch(API_BASE + "/header");
+    if (r.ok) {
       const j = await r.json();
-      if(r.ok&&j.ok){setToken(j.token);renderApp();}
-      else alert("Login failed: "+(j.error||"invalid"));
-    }catch(e){alert("Network error: "+e.message);}
-  };
+      // expected j = [{ symbol, price }, ...] or simplified ids
+      const map = {};
+      j.forEach(x => {
+        if (x.symbol) map[x.symbol.replace(/USDT$/,'')] = x.price || x.current_price || x.price;
+        else if (x.id) {
+          if (x.id==='bitcoin') map['BTC'] = x.price || x.current_price;
+          if (x.id==='ethereum') map['ETH'] = x.price || x.current_price;
+          if (x.id==='binancecoin') map['BNB'] = x.price || x.current_price;
+        }
+      });
+      document.getElementById("tick_btc").innerText = map.BTC ? Number(map.BTC).toLocaleString() : "--";
+      document.getElementById("tick_eth").innerText = map.ETH ? Number(map.ETH).toLocaleString() : "--";
+      document.getElementById("tick_bnb").innerText = map.BNB ? Number(map.BNB).toLocaleString() : "--";
+      return;
+    }
+  } catch(e){ /* ignore and fallback */ }
+
+  // fallback: Bitget public tickers
+  try {
+    const pairList = "BTCUSDT,ETHUSDT,BNBUSDT";
+    // Bitget public API endpoint for tickers (non-signed)
+    const resp = await fetch(`https://api.bitget.com/api/spot/v1/market/tickers?symbols=${encodeURIComponent(JSON.stringify([ "BTCUSDT","ETHUSDT","BNBUSDT" ]))}`);
+    if (resp.ok){
+      const j = await resp.json();
+      // Bitget returns data items; adapt
+      const data = j.data || j;
+      (data||[]).forEach(t => {
+        if (t.symbol==="BTCUSDT") $("#tick_btc").innerText = Number(t.close || t.last || t.lastPrice || t.lastTradedPrice || 0).toLocaleString();
+        if (t.symbol==="ETHUSDT") $("#tick_eth").innerText = Number(t.close || t.last || 0).toLocaleString();
+        if (t.symbol==="BNBUSDT") $("#tick_bnb").innerText = Number(t.close || t.last || 0).toLocaleString();
+      });
+      return;
+    }
+  } catch(e){ /* ignore */ }
+
+  // last fallback = leave as is
 }
 
-/* ===== DASHBOARD ===== */
-function htmlApp(){
-  app.innerHTML = `
-    <header>
-      <div style="display:flex;gap:10px;align-items:center">
-        <h3 style="margin:0">DexScan V3.5</h3>
-        <div id="topPrices" style="font-size:13px;color:#9fb0b9">BTC: -- | ETH: -- | BNB: --</div>
-      </div>
-      <div style="display:flex;gap:10px;align-items:center">
-        <div id="modeLabel" style="font-size:13px;color:#9fb0b9">
-          Mode: <b id="modeText">Loading...</b>
-        </div>
-        <button id="logout" class="btn gray">Logout</button>
-      </div>
-    </header>
-
-    <div style="display:flex;gap:12px;padding:12px">
-      <div style="width:320px">
-        <div class="card">
-          <h4 style="margin:0 0 8px 0">Controls</h4>
-          <div style="display:flex;gap:8px;margin-bottom:8px">
-            <button id="deepScan" class="btn">Deep Scan</button>
-            <button id="autoToggle" class="btn gray">Auto: OFF</button>
-          </div>
-          <div style="display:flex;gap:8px;margin-bottom:8px">
-            <button id="modeToggle" class="btn">Switch Mode</button>
-            <button id="refreshBtn" class="btn gray">Refresh</button>
-          </div>
-          <div id="log" style="font-size:12px"></div>
-        </div>
-      </div>
-
-      <div style="flex:1;display:flex;flex-direction:column;gap:12px">
-        <div class="card">
-          <h4 style="margin:0 0 8px 0">Scanner Results</h4>
-          <table>
-            <thead><tr><th>Symbol</th><th>Score</th><th>Entry</th><th>Reasons</th><th>Action</th></tr></thead>
-            <tbody id="scanBody"></tbody>
-          </table>
-        </div>
-
-        <div class="card">
-          <h4 style="margin:0 0 8px 0">Trades & Wallet</h4>
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div>Balance: <b id="balance">-</b></div>
-            <div>
-              <select id="showFilter">
-                <option value="all">All</option>
-                <option value="open">Open</option>
-                <option value="closed">Closed</option>
-              </select>
-            </div>
-          </div>
-          <table>
-            <thead><tr><th>Symbol</th><th>Entry</th><th>Latest</th><th>PNL</th><th>Status</th><th>Action</th></tr></thead>
-            <tbody id="tradesBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>`;
-  logout.onclick=()=>{clearToken();renderApp();};
-  deepScan.onclick=deepScan;
-  refreshBtn.onclick=refreshAll;
-  autoToggle.onclick=toggleAuto;
-  modeToggle.onclick=toggleMode;
-  showFilter.onchange=loadTrades;
+/* ===== fetch scanner results / run scan ===== */
+async function loadScanResults(){
+  try {
+    const r = await fetch(API_BASE + "/scan/results");
+    if (!r.ok) throw new Error("scan results failed");
+    const arr = await r.json();
+    renderScanner(arr || []);
+    appendLog("Scan results loaded: " + (arr?.length || 0));
+  } catch(e){
+    appendLog("Scan load error: " + e.message);
+  }
 }
 
-/* ===== API HELPERS ===== */
-function authHeaders(){const t=getToken();return t?{"Authorization":"Bearer "+t,"Content-Type":"application/json"}:{"Content-Type":"application/json"};}
-async function apiGet(p){try{const r=await fetch(API+p,{headers:authHeaders()});if(r.status===401){clearToken();renderApp();return null;}return await r.json();}catch(e){appendLog("Network error: "+e.message);return null;}}
-async function apiPost(p,b){try{const r=await fetch(API+p,{method:"POST",headers:authHeaders(),body:JSON.stringify(b||{})});if(r.status===401){clearToken();renderApp();return null;}return await r.json();}catch(e){appendLog("Network error: "+e.message);return null;}}
-
-/* ===== LOGGING ===== */
-function appendLog(msg){const el=document.getElementById("log");if(!el)return;el.innerHTML=new Date().toLocaleTimeString()+" — "+msg+"<br>"+el.innerHTML;}
-
-/* ===== FUNCTIONS ===== */
-async function refreshTop(){
-  try{
-    const res=await fetch(PRICE_FEED+"BTCUSDT,ETHUSDT,BNBUSDT");
-    const j=await res.json();
-    const tickers=j.data||[];
-    const btc=tickers.find(x=>x.symbol==="BTCUSDT")?.lastPr??0;
-    const eth=tickers.find(x=>x.symbol==="ETHUSDT")?.lastPr??0;
-    const bnb=tickers.find(x=>x.symbol==="BNBUSDT")?.lastPr??0;
-    document.getElementById("topPrices").innerText=`BTC: ${btc} | ETH: ${eth} | BNB: ${bnb}`;
-  }catch(e){console.log("Top price error",e);}
+async function runDeepScan(){
+  appendLog("Triggering deep scan...");
+  try {
+    const r = await fetch(API_BASE + "/scan/run", { method: "POST" });
+    if (!r.ok) {
+      const text = await r.text();
+      appendLog("Scan run failed: " + r.status + " " + text);
+      return;
+    }
+    const arr = await r.json();
+    renderScanner(arr || []);
+    appendLog("Deep scan finished: " + (arr?.length || 0));
+  } catch(e){
+    appendLog("Scan run error: " + e.message);
+  }
 }
 
-async function deepScan(){
-  appendLog("Deep scan started...");
-  const r=await apiPost("/scan/run",{});
-  if(Array.isArray(r)){renderScan(r);appendLog("Deep scan finished — found "+r.length);}else appendLog("Scan failed");
-}
-
-function renderScan(list){
-  const tbody=document.getElementById("scanBody");tbody.innerHTML="";
-  (list||[]).forEach(it=>{
-    const tr=document.createElement("tr");
-    tr.innerHTML=`
-      <td>${it.symbol}</td>
-      <td>${it.score}</td>
-      <td>${it.entry?.toFixed?.(6)||"-"}</td>
-      <td>${(it.reasons||[]).slice(0,3).join(", ")}</td>
-      <td><button class="btn" onclick="buySymbol('${it.symbol}')">Buy</button></td>`;
+/* ===== render scanner table (click to expand) ===== */
+function renderScanner(list){
+  const tbody = document.getElementById("scannerBody");
+  tbody.innerHTML = "";
+  list.forEach(item => {
+    // expect item: { symbol, score, entry, tp, tp1,tp2,tp3, reasons, potential_pct, est_hours }
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="symbol clickable">${item.symbol}</td>
+      <td>${item.score ?? "-"}</td>
+      <td>${item.entry?.toFixed?.(8) ?? item.entry ?? "-"}</td>
+      <td>${(item.tp1??(item.entry*1.10))?.toFixed?.(8)??"-"} / ${(item.tp2??(item.entry*1.15))?.toFixed?.(8)??"-"} / ${(item.tp3??(item.entry*1.25))?.toFixed?.(8)??"-"}</td>
+      <td>${(item.potential_pct ?? calculatePotentialPct(item)).toFixed(2)}%</td>
+      <td>${item.est_hours ? (item.est_hours + "h") : calculateEstTime(item)}</td>
+      <td><button class="btn-small" data-buy="${item.symbol}">Buy</button></td>
+    `;
     tbody.appendChild(tr);
+
+    // details row (hidden)
+    const dr = document.createElement("tr");
+    const dcell = document.createElement("td");
+    dcell.colSpan = 7;
+    dcell.className = "detail-row";
+    dcell.style.display = "none";
+    dcell.innerHTML = `<strong>Reasons / indicators:</strong><br/><pre style="white-space:pre-wrap;margin:6px 0">${(item.reasons || item.indicators || item.details || "No details provided")}</pre>
+      <div style="display:flex;gap:8px"><small>TP1:</small> <b>${(item.tp1??(item.entry*1.10))?.toFixed?.(8)??"-"}</b> &nbsp;
+      <small>TP2:</small> <b>${(item.tp2??(item.entry*1.15))?.toFixed?.(8)??"-"}</b> &nbsp;
+      <small>TP3:</small> <b>${(item.tp3??(item.entry*1.25))?.toFixed?.(8)??"-"}</b></div>`;
+    dr.appendChild(dcell);
+    tbody.appendChild(dr);
+
+    // click toggles
+    tr.querySelector(".symbol").addEventListener("click", () => {
+      dcell.style.display = dcell.style.display === "none" ? "block" : "none";
+    });
+
+    // buy button
+    tr.querySelector("button[data-buy]").addEventListener("click", async (e) => {
+      const sym = e.target.dataset.buy;
+      await buySymbol(sym);
+    });
   });
 }
 
-async function buySymbol(sym){
-  appendLog("Buy requested "+sym);
-  const r=await apiPost("/trade/buy",{symbol:sym});
-  appendLog(r&&r.ok?"Buy success "+sym:"Buy error");
-  await loadTrades();await loadBalance();
+/* helper fallback calculators */
+function calculatePotentialPct(item){
+  try{
+    const entry = Number(item.entry);
+    const tp = (item.tp3 || item.tp || entry*(1+0.10));
+    return ((tp - entry) / entry) * 100;
+  }catch(e){return 0;}
+}
+function calculateEstTime(item){
+  if (item && item.score) {
+    if (item.score >= 9) return "12h-24h";
+    if (item.score >= 7) return "24h-48h";
+    return "48h+";
+  }
+  return "-";
 }
 
+/* ===== trades / wallet ===== */
+let lastPnlBySymbol = {}; // for blinking detection
 async function loadTrades(){
-  const data=await apiGet("/trades");
-  if(!data)return;
-  const filter=showFilter.value;
-  const tbody=document.getElementById("tradesBody");
-  tbody.innerHTML="";
-  for(const t of data){
-    if(filter==="open"&&t.status!=="OPEN")continue;
-    if(filter==="closed"&&t.status==="OPEN")continue;
-    const pnl=t.unreal_pnl??t.pnl??0;
-    const tr=document.createElement("tr");
-    tr.innerHTML=`
+  try {
+    const r = await fetch(API_BASE + "/trades");
+    if (!r.ok) throw new Error("trades fetch failed");
+    const arr = await r.json();
+    renderTrades(arr || []);
+  } catch(e){
+    appendLog("Trades load error: " + e.message);
+  }
+}
+
+function renderTrades(list){
+  const tbody = document.getElementById("tradesBody");
+  const filter = document.getElementById("tradeFilter").value;
+  tbody.innerHTML = "";
+  (list || []).forEach(t => {
+    if (filter === "open" && t.status !== "OPEN") return;
+    if (filter === "closed" && t.status === "OPEN") return;
+
+    const latest = t.latest_price ?? "-";
+    const pnlVal = typeof t.unreal_pnl !== "undefined" ? t.unreal_pnl : (t.pnl || 0);
+    const pnlText = typeof pnlVal === "number" ? (pnlVal > 0 ? "+"+pnlVal.toFixed(6) : pnlVal.toFixed(6)) : pnlVal;
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
       <td>${t.symbol}</td>
-      <td>${t.entry_price?.toFixed?.(6)||"-"}</td>
-      <td id="latest-${t.symbol}">${t.latest_price?.toFixed?.(6)||"-"}</td>
-      <td id="pnl-${t.symbol}" style="color:${pnl>=0?'#7ee787':'#ff6b6b'}">${Number(pnl).toFixed(4)}</td>
+      <td>${t.entry_price?.toFixed?.(8) ?? t.entry_price ?? "-"}</td>
+      <td id="latest_${t.symbol}">${(latest && latest.toFixed) ? Number(latest).toFixed(8) : (latest || "-")}</td>
+      <td id="pnl_${t.symbol}" class="trade-pnl">${pnlText}</td>
+      <td>${t.exit_price ? Number(t.exit_price).toFixed(8) : "-"}</td>
       <td>${t.status}</td>
-      <td>${t.status==="OPEN"?'<button class="btn red" onclick="closeTrade(\''+t.id+'\')">Sell</button>':'-'}</td>`;
+      <td>${t.status==="OPEN" ? `<button class="btn-small" data-close="${t.id}">Sell</button>` : "-"}</td>
+    `;
     tbody.appendChild(tr);
-  }
-}
 
-async function updateLivePNL(){
-  const tbody=document.getElementById("tradesBody");
-  const rows=[...tbody.querySelectorAll("tr")];
-  if(!rows.length)return;
-  for(const row of rows){
-    const symbol=row.children[0].innerText;
-    try{
-      const res=await fetch(PRICE_FEED+symbol);
-      const j=await res.json();
-      const p=j.data?.[0]?.lastPr;
-      if(p){
-        const latest=document.getElementById(`latest-${symbol}`);
-        if(latest)latest.innerText=Number(p).toFixed(6);
-        const entry=parseFloat(row.children[1].innerText)||0;
-        const pnl=((p-entry)/entry*100)||0;
-        const pnlEl=document.getElementById(`pnl-${symbol}`);
-        if(pnlEl){pnlEl.innerText=pnl.toFixed(2)+"%";pnlEl.style.color=pnl>=0?'#7ee787':'#ff6b6b';}
+    // attach close
+    const closeBtn = tr.querySelector("button[data-close]");
+    if (closeBtn) closeBtn.addEventListener("click", async (e) => { await closeTrade(e.target.dataset.close); });
+
+    // blinking logic: compare lastPnlBySymbol
+    const key = t.symbol;
+    const lastVal = lastPnlBySymbol[key];
+    const nowVal = typeof t.unreal_pnl !== "undefined" ? t.unreal_pnl : (t.pnl || 0);
+    if (lastVal !== undefined && nowVal !== lastVal) {
+      const el = document.getElementById(`pnl_${t.symbol}`);
+      if (el) {
+        if (nowVal > lastVal) { el.classList.remove("blink-red"); el.classList.add("blink-green"); setTimeout(()=>el.classList.remove("blink-green"),900); }
+        else { el.classList.remove("blink-green"); el.classList.add("blink-red"); setTimeout(()=>el.classList.remove("blink-red"),900); }
       }
-    }catch(e){console.log("PNL error",symbol,e);}
+    }
+    lastPnlBySymbol[key] = nowVal;
+  });
+}
+
+/* ===== buy/sell actions ===== */
+async function buySymbol(symbol){
+  try {
+    appendLog("Buy requested " + symbol);
+    const r = await fetch(API_BASE + "/trade/buy", { method: "POST", headers: {'Content-Type':'application/json'}, body: JSON.stringify({ symbol, percent: undefined }) });
+    const j = await r.json();
+    if (r.ok && j.ok) {
+      appendLog("Buy placed: " + (j.trade?.id || j.trade?.symbol || JSON.stringify(j)));
+      await loadTrades(); await loadBalance();
+    } else {
+      appendLog("Buy error: " + JSON.stringify(j || (await r.text())));
+    }
+  } catch(e){
+    appendLog("Buy error: " + e.message);
   }
 }
 
-async function closeTrade(id){
-  appendLog("Close requested "+id);
-  const r=await apiPost("/trade/sell",{trade_id:id});
-  appendLog(r&&r.ok?"Closed "+id:"Close error");
-  await loadTrades();await loadBalance();
+async function closeTrade(tradeId){
+  try {
+    appendLog("Sell requested " + tradeId);
+    const r = await fetch(API_BASE + "/trade/sell", { method: "POST", headers: {'Content-Type':'application/json'}, body: JSON.stringify({ trade_id: tradeId }) });
+    const j = await r.json();
+    if (r.ok && j.ok) {
+      appendLog("Sell executed: " + tradeId);
+      await loadTrades(); await loadBalance();
+    } else {
+      appendLog("Sell error: " + JSON.stringify(j || (await r.text())));
+    }
+  } catch(e){
+    appendLog("Sell error: " + e.message);
+  }
 }
 
+/* ===== live price + PnL updater ===== */
+async function updateLivePricesAndPnL(){
+  try {
+    // get trades so we know which symbols to update
+    const r = await fetch(API_BASE + "/trades");
+    if (!r.ok) return;
+    const trades = await r.json();
+    const symbols = Array.from(new Set((trades || []).filter(t=>t.status==="OPEN").map(t=>t.symbol)));
+    if (!symbols.length) return;
+
+    // batch fetch: try bitget tickers endpoint for each symbol
+    for (const sym of symbols) {
+      try {
+        // Bitget doesn't have single simple anonymous per-symbol endpoint consistent; many endpoints vary.
+        // We'll try coinGecko fallback if backend doesn't provide latest in /trades.
+        const resp = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}`).catch(()=>null);
+        let latest = null;
+        if (resp && resp.ok) {
+          const j = await resp.json();
+          latest = Number(j.price);
+        } else {
+          // fallback to backend ticker endpoint if exists
+          const r2 = await fetch(API_BASE + "/ticker?symbol=" + encodeURIComponent(sym)).catch(()=>null);
+          if (r2 && r2.ok) {
+            const j2 = await r2.json();
+            latest = Number(j2.price || j2.data?.last || j2.data?.close);
+          }
+        }
+        if (latest) {
+          const latestEl = document.getElementById("latest_" + sym);
+          const pnlEl = document.getElementById("pnl_" + sym);
+          if (latestEl) latestEl.innerText = Number(latest).toFixed(8);
+          // compute PnL (if trade open)
+          const trade = trades.find(t=>t.symbol===sym && t.status==="OPEN");
+          if (trade) {
+            const invested = trade.invested ?? (trade.entry_price * trade.qty) || 0;
+            const gross = trade.qty * latest;
+            const sellFee = gross * ((parseFloat(trade.sell_fee || 0) || 0) / (trade.gross_proceeds || gross) || 0) || 0;
+            const pnl = +(gross - sellFee - invested);
+            if (pnlEl) {
+              const prev = parseFloat(pnlEl.innerText) || 0;
+              pnlEl.innerText = pnl.toFixed(6);
+              if (pnl > prev) { pnlEl.classList.add("blink-green"); setTimeout(()=>pnlEl.classList.remove("blink-green"),900); }
+              else if (pnl < prev) { pnlEl.classList.add("blink-red"); setTimeout(()=>pnlEl.classList.remove("blink-red"),900); }
+            }
+          }
+        }
+      } catch(e){
+        // skip per-symbol errors
+      }
+    }
+  } catch(e){
+    // ignore
+  }
+}
+
+/* ===== balance ===== */
 async function loadBalance(){
-  const b=await apiGet("/balance");
-  if(!b)return;
-  document.getElementById("balance").innerText=(b.balance?.USDT??0).toFixed(2);
+  try {
+    const r = await fetch(API_BASE + "/balance");
+    if (!r.ok) return;
+    const j = await r.json();
+    const bal = j.balance?.USDT ?? (j.balance ?? j).USDT ?? (j.balance ?? j).usdt ?? j.usdt ?? 0;
+    $("#balanceUSDT").innerText = Number(bal).toFixed(2);
+  } catch(e){
+    appendLog("Balance error: " + e.message);
+  }
 }
 
-async function toggleAuto(){
-  const cur=await apiGet("/auto");
-  const next=!cur?.auto;
-  await apiPost("/auto",{enabled:next});
-  autoToggle.innerText=next?"Auto: ON":"Auto: OFF";
-  appendLog("Auto set -> "+next);
+/* ===== auto scan / auto trade toggles ===== */
+async function loadAutoStates(){
+  try {
+    const r1 = await fetch(API_BASE + "/auto"); // expects {auto:bool}
+    if (r1.ok) {
+      const j1 = await r1.json();
+      $("#autoScanBtn").innerText = j1.auto ? "Auto Scan: ON" : "Auto Scan: OFF";
+    }
+    const r2 = await fetch(API_BASE + "/mode"); // expects {demo:bool}
+    if (r2.ok) {
+      const j2 = await r2.json();
+      $("#modeText").innerText = j2.demo ? "Demo" : "Live";
+    }
+  } catch(e){ /* ignore */ }
 }
 
-async function toggleMode(){
-  const cur=await apiGet("/mode");
-  const next=!cur?.demo;
-  await apiPost("/mode",{demo:next});
-  modeText.innerText=next?"Demo":"Live";
-  appendLog("Mode set -> "+(next?"Demo":"Live"));
+/* toggle auto-trade (uses /api/auto as simple control) */
+async function toggleAutoScan(){
+  try {
+    const cur = $("#autoScanBtn").innerText.includes("ON");
+    const r = await fetch(API_BASE + "/auto", { method: "POST", headers: {'Content-Type':'application/json'}, body: JSON.stringify({ enabled: !cur })});
+    if (r.ok) { const j = await r.json(); $("#autoScanBtn").innerText = j.auto ? "Auto Scan: ON" : "Auto Scan: OFF"; appendLog("Auto scan set → " + j.auto); }
+  } catch(e){ appendLog("Auto scan toggle error: " + e.message); }
+}
+async function toggleAutoTrade(){
+  try {
+    const cur = $("#autoTradeBtn").innerText.includes("ON");
+    // this needs backend endpoint: /api/autoTrade or reuse /api/auto with different flag
+    const r = await fetch(API_BASE + "/auto", { method: "POST", headers: {'Content-Type':'application/json'}, body: JSON.stringify({ enabled: !cur, type: "trade" })});
+    if (r.ok) {
+      const j = await r.json();
+      $("#autoTradeBtn").innerText = j.auto ? "Auto Trade: ON" : "Auto Trade: OFF";
+      appendLog("Auto trade set → " + j.auto);
+    }
+  } catch(e){ appendLog("Auto trade toggle error: " + e.message); }
 }
 
-async function refreshAll(){
-  await refreshTop();await loadBalance();await loadTrades();
-}
+/* ===== UI wiring ===== */
+document.getElementById("deepScanBtn").addEventListener("click", runDeepScan);
+document.getElementById("refreshBtn").addEventListener("click", () => { loadScanResults(); loadTrades(); loadBalance(); refreshTopTickers(); });
+document.getElementById("autoScanBtn").addEventListener("click", toggleAutoScan);
+document.getElementById("autoTradeBtn").addEventListener("click", toggleAutoTrade);
+document.getElementById("modeToggleBtn").addEventListener("click", async () => {
+  try {
+    // flip mode: expects backend /api/mode POST { demo: true/false } or fallback
+    const cur = document.getElementById("modeText").innerText === "Demo";
+    await fetch(API_BASE + "/mode", { method: "POST", headers: {'Content-Type':'application/json'}, body: JSON.stringify({ demo: !cur })});
+    await loadAutoStates();
+  } catch(e){ appendLog("Mode toggle error: " + e.message); }
+});
+document.getElementById("settingsBtn").addEventListener("click", ()=>document.getElementById("settingsModal").style.display="block");
+document.getElementById("closeSettingsBtn").addEventListener("click", ()=>document.getElementById("settingsModal").style.display="none");
+document.getElementById("saveSettingsBtn").addEventListener("click", ()=>{
+  // save locally; ideally send to backend via /api/settings
+  const tp = Number(document.getElementById("setTP").value||10);
+  const tp2 = Number(document.getElementById("setTP2").value||15);
+  const tp3 = Number(document.getElementById("setTP3").value||25);
+  const invest = Number(document.getElementById("setInvest").value||5);
+  appendLog(`Settings saved TP:${tp} TP2:${tp2} TP3:${tp3} invest:${invest}`);
+  document.getElementById("settingsModal").style.display="none";
+});
 
-/* ===== MAIN ===== */
-async function renderApp(){
-  const t=getToken();
-  if(!t){htmlLogin();return;}
-  htmlApp();
-  await refreshAll();
-  const m=await apiGet("/mode");
-  modeText.innerText=m?.demo?"Demo":"Live";
-  const auto=await apiGet("/auto");
-  if(auto&&auto.auto){appendLog("Auto active — running deep scan...");deepScan();autoToggle.innerText="Auto: ON";}
-  setInterval(refreshTop,5000);
-  setInterval(loadTrades,7000);
-  setInterval(updateLivePNL,5000);
-  setInterval(loadBalance,10000);
-}
+/* ===== periodic refresh loops ===== */
+setInterval(async () => { await pingBackend(); await refreshTopTickers(); }, 5000);
+setInterval(async () => { await loadTrades(); }, 5000);
+setInterval(async () => { await updateLivePricesAndPnL(); }, 5000); // keep PnL lively
+setInterval(async () => { await loadScanResults(); }, 60 * 1000); // refresh scans every 60s
 
-/* Boot */
-renderApp();
+/* initial load */
+(async function init(){
+  await pingBackend();
+  await refreshTopTickers();
+  await loadAutoStates();
+  await loadScanResults();
+  await loadTrades();
+  await loadBalance();
+  appendLog("UI initialized");
+})();
 </script>
 </body>
 </html>
