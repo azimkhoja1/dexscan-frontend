@@ -1,153 +1,254 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>DexScan — Bitget Bot (Stable)</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DexScan — Bitget Bot</title>
   <style>
-    :root{--bg:#071226;--card:#0f2430;--muted:#8aa0a6;--accent:#16a085;--danger:#e74c3c;--yellow:#f6c23e}
-    body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(180deg,#041024,#071020);color:#e6f0f0}
-    header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px}
-    h1{margin:0;font-size:18px}
-    .top{display:flex;gap:18px;align-items:center}
-    .container{display:flex;gap:18px;padding:18px}
-    .left{width:320px}
-    .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,0.6)}
-    button{background:var(--accent);border:none;color:white;padding:8px 12px;border-radius:8px;cursor:pointer}
-    button.secondary{background:#22343a}
-    .small{font-size:13px;color:var(--muted)}
-    #logs{height:320px;overflow:auto;margin-top:12px;background:#071526;padding:8px;border-radius:6px}
-    table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
-    th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,0.03);vertical-align:middle;text-align:left}
-    th{color:#9fb0b9;font-size:12px}
-    .symbol{font-weight:700;color:#bfeee2;cursor:default}
+    body {
+      background-color: #0d1117;
+      color: #e6edf3;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #161b22;
+      padding: 10px 20px;
+      border-bottom: 1px solid #30363d;
+    }
+    header span {
+      font-weight: bold;
+      color: #58a6ff;
+    }
+    .controls, .scanner, .trades {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      margin: 10px;
+      padding: 15px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 2fr 2fr;
+      gap: 10px;
+    }
+    button {
+      background: #238636;
+      border: none;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 6px;
+    }
+    button.red { background: #d73a49; }
+    button.blue { background: #1f6feb; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #30363d;
+      text-align: left;
+    }
+    .mode-label {
+      font-size: 13px;
+      color: #aaa;
+    }
+    .top-coins {
+      display: flex;
+      gap: 20px;
+      font-size: 14px;
+    }
+    .top-coins span { color: #7ee787; }
   </style>
 </head>
 <body>
   <header>
-    <div style="display:flex;align-items:center;gap:12px">
-      <h1>DexScan — Bitget Bot</h1>
-      <div class="top small">
-        <div>BTC <span id="btcTop">—</span></div>
-        <div>ETH <span id="ethTop">—</span></div>
-        <div>BNB <span id="bnbTop">—</span></div>
+    <div>
+      <span>DexScan — Bitget Bot</span>
+      <div class="top-coins">
+        <span>BTC: <b id="btcPrice">--</b></span>
+        <span>ETH: <b id="ethPrice">--</b></span>
+        <span>BNB: <b id="bnbPrice">--</b></span>
       </div>
     </div>
-    <div id="backendStatus" class="small">Connecting...</div>
+    <div>
+      <b id="modeStatus" style="color:#ffa657;">Loading mode...</b>
+    </div>
   </header>
 
-  <div class="container">
-    <div class="left">
-      <div class="card">
-        <h3>Controls</h3>
-        <button id="deepScan">🔍 Deep Scan</button>
-        <button id="refreshBtn" class="secondary">🔄 Refresh</button>
-        <div id="logs" class="small"></div>
-      </div>
+  <div class="grid">
+    <div class="controls">
+      <h3>Controls</h3>
+      <button id="deepScanBtn">🔍 Deep Scan</button>
+      <button id="autoScanBtn" class="blue">Auto: OFF</button>
+      <button id="toggleModeBtn">Switch to Live</button>
+      <button id="refreshBtn" class="blue">Refresh</button>
+      <div id="logBox" style="margin-top:10px; font-size:12px; max-height:200px; overflow:auto;"></div>
     </div>
 
-    <div style="flex:1">
-      <div class="card">
-        <table>
-          <thead><tr><th>Symbol</th><th>Score</th><th>Entry</th><th>Reason</th></tr></thead>
-          <tbody id="tableBody"></tbody>
-        </table>
-      </div>
+    <div class="scanner">
+      <h3>Scanner Results</h3>
+      <table>
+        <thead>
+          <tr><th>Symbol</th><th>Score</th><th>Entry</th><th>Reason</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="scanResults"></tbody>
+      </table>
+    </div>
+
+    <div class="trades">
+      <h3>Trades & Wallet</h3>
+      <div>Balance: <b id="balance">--</b> USDT</div>
+      <table>
+        <thead><tr><th>Symbol</th><th>Entry</th><th>PNL</th><th>Status</th></tr></thead>
+        <tbody id="tradesList"></tbody>
+      </table>
     </div>
   </div>
 
-<script>
-/*
-  IMPORTANT: set your backend root URL here (no trailing /api)
-  Example: const BACKEND_ROOT = "https://dexscan-backend.onrender.com";
-*/
-const BACKEND_ROOT = "https://dexscan-backend.onrender.com"; // <-- REPLACE if different
-const API_BASE = (BACKEND_ROOT.endsWith('/') ? BACKEND_ROOT.slice(0,-1) : BACKEND_ROOT) + "/api";
-const ROOT_BASE = BACKEND_ROOT.endsWith('/') ? BACKEND_ROOT.slice(0,-1) : BACKEND_ROOT;
-
-const LOGS = document.getElementById("logs");
-function log(msg) {
-  LOGS.innerHTML = new Date().toLocaleTimeString() + " — " + msg + "<br>" + LOGS.innerHTML;
-  console.log(msg);
-}
-
-/* generic API helper: ensures no double slashes */
-async function api(path, opts = {}) {
-  try {
-    const fixedPath = path.startsWith('/') ? path : '/' + path;
-    const url = API_BASE + fixedPath;
-    const r = await fetch(url, opts);
-    if (!r.ok) {
-      const txt = await r.text();
-      log("ERR " + r.status + " " + url + " -> " + txt);
-      return { ok:false, status: r.status, text: txt };
-    }
-    return { ok:true, data: await r.json() };
-  } catch (e) {
-    log("Network: " + e.message);
-    return { ok:false, error: e.message };
-  }
-}
-
-/* health check uses backend root not /api/ (prevents GET /api/) */
-async function health() {
-  try {
-    const r = await fetch(ROOT_BASE + "/");
-    if (!r.ok) return { ok:false, status:r.status };
-    return { ok:true, text: await r.text() };
-  } catch(e) { return { ok:false, error: e.message }; }
-}
-
-/* live header prices via Binance ws */
-function wsPair(sym, elId) {
-  try {
-    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${sym.toLowerCase()}@trade`);
-    ws.onmessage = e => {
-      const d = JSON.parse(e.data);
-      document.getElementById(elId).innerText = Number(d.p).toLocaleString();
+  <script>
+    const BACKEND = "https://dexscan-backend.onrender.com";
+    const logBox = document.getElementById("logBox");
+    const addLog = msg => {
+      const t = new Date().toLocaleTimeString();
+      logBox.innerHTML = `[${t}] ${msg}<br>` + logBox.innerHTML;
     };
-  } catch(e) { console.warn(e); }
-}
-wsPair("BTCUSDT","btcTop"); wsPair("ETHUSDT","ethTop"); wsPair("BNBUSDT","bnbTop");
 
-/* UI actions */
-document.getElementById("deepScan").onclick = async () => {
-  log("Triggering deep scan...");
-  const r = await api("/scan/run", { method: "POST" });
-  if (r.ok) log("Scan finished: " + (r.data?.length || 0));
-  await renderTable();
-};
+    async function loadPrices() {
+      try {
+        const r = await fetch(BACKEND + "/api/header");
+        const d = await r.json();
+        document.getElementById("btcPrice").textContent = d.find(x => x.id==="bitcoin") ? "OK" : "--";
+      } catch { addLog("Failed to load prices"); }
+    }
 
-document.getElementById("refreshBtn").onclick = async () => { await renderTable(); };
+    async function refreshPrices() {
+      try {
+        const url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,binancecoin&vs_currencies=usd";
+        const res = await fetch(url);
+        const data = await res.json();
+        document.getElementById("btcPrice").textContent = data.bitcoin.usd;
+        document.getElementById("ethPrice").textContent = data.ethereum.usd;
+        document.getElementById("bnbPrice").textContent = data.binancecoin.usd;
+      } catch {}
+    }
 
-async function renderTable() {
-  const res = await api("/scan/results");
-  const arr = (res.ok && Array.isArray(res.data)) ? res.data : [];
-  const tbody = document.getElementById("tableBody");
-  tbody.innerHTML = arr.map(c => `
-    <tr>
-      <td>${c.symbol}</td>
-      <td>${c.score}</td>
-      <td>${typeof c.entry === 'number' ? c.entry.toFixed(6) : (c.entry||'-')}</td>
-      <td>${(c.reasons||[]).slice(0,3).join(", ")}</td>
-    </tr>`).join("");
-}
+    async function loadMode() {
+      const res = await fetch(BACKEND + "/api/mode");
+      const d = await res.json();
+      const modeLabel = document.getElementById("modeStatus");
+      const toggleBtn = document.getElementById("toggleModeBtn");
+      if (d.demo) {
+        modeLabel.textContent = "🧪 Demo Mode";
+        modeLabel.style.color = "#7ee787";
+        toggleBtn.textContent = "Switch to Live";
+      } else {
+        modeLabel.textContent = "💹 Live Mode";
+        modeLabel.style.color = "#ffa657";
+        toggleBtn.textContent = "Switch to Demo";
+      }
+    }
 
-async function refreshAll() {
-  const h = await health();
-  document.getElementById("backendStatus").innerText = h.ok ? "Backend connected" : "Backend not reachable";
-  await renderTable();
-}
+    async function toggleMode() {
+      const res = await fetch(BACKEND + "/api/mode");
+      const d = await res.json();
+      const newMode = !d.demo;
+      await fetch(BACKEND + "/api/mode", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ demo: newMode })
+      });
+      addLog("Mode switched to " + (newMode ? "Demo" : "Live"));
+      await loadMode();
+    }
 
-/* init */
-(async function init() {
-  // ensure user replaced BACKEND_ROOT if needed
-  if (BACKEND_ROOT.includes("YOUR_BACKEND")) {
-    alert("Please edit index.html and set BACKEND_ROOT to your Render backend root URL.");
-  }
-  await refreshAll();
-  setInterval(refreshAll, 10000);
-})();
-</script>
+    async function runScan() {
+      addLog("Triggering deep scan...");
+      const res = await fetch(BACKEND + "/api/scan/run", { method: "POST" });
+      const data = await res.json();
+      const box = document.getElementById("scanResults");
+      box.innerHTML = "";
+      data.forEach(c => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${c.symbol}</td>
+          <td>${c.score}</td>
+          <td>${c.entry}</td>
+          <td title="${c.reasons.join(', ')}">${c.reasons.join(', ')}</td>
+          <td>
+            <button onclick="buy('${c.symbol}')">Buy</button>
+          </td>
+        `;
+        box.appendChild(tr);
+      });
+      addLog(`Scan finished: ${data.length} results`);
+    }
+
+    async function buy(symbol) {
+      const res = await fetch(BACKEND + "/api/trade/buy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol })
+      });
+      const data = await res.json();
+      addLog(`Buy executed: ${symbol}`);
+      await loadTrades();
+      await loadBalance();
+    }
+
+    async function sell(id) {
+      const res = await fetch(BACKEND + "/api/trade/sell", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id })
+      });
+      const data = await res.json();
+      addLog(`Sell executed: ${data.trade.symbol}`);
+      await loadTrades();
+      await loadBalance();
+    }
+
+    async function loadTrades() {
+      const res = await fetch(BACKEND + "/api/trades");
+      const data = await res.json();
+      const list = document.getElementById("tradesList");
+      list.innerHTML = "";
+      data.forEach(t => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${t.symbol}</td>
+          <td>${t.entry_price?.toFixed(4) || "-"}</td>
+          <td>${t.pnl?.toFixed(3) || 0}</td>
+          <td>${t.status}</td>
+          <td><button class="red" onclick="sell(${t.id})">Sell</button></td>
+        `;
+        list.appendChild(tr);
+      });
+    }
+
+    async function loadBalance() {
+      const res = await fetch(BACKEND + "/api/balance");
+      const data = await res.json();
+      document.getElementById("balance").textContent = data.balance.USDT.toFixed(2);
+    }
+
+    document.getElementById("deepScanBtn").onclick = runScan;
+    document.getElementById("refreshBtn").onclick = () => { loadTrades(); loadBalance(); refreshPrices(); };
+    document.getElementById("toggleModeBtn").onclick = toggleMode;
+
+    setInterval(refreshPrices, 15000);
+    setInterval(loadTrades, 10000);
+    loadMode();
+    refreshPrices();
+    loadBalance();
+    loadTrades();
+  </script>
 </body>
 </html>
