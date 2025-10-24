@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DexScan V3 — Bitget Bot</title>
+  <title>DexScan V3.2 — Bitget Bot</title>
   <link rel="icon" href="data:,">
   <style>
     :root {
@@ -18,6 +18,18 @@
       font-family: Inter, Segoe UI, Arial, sans-serif;
       background: linear-gradient(180deg, #041024, #071020);
       color: #e6f0f0;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 18px;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 10px;
+      padding: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
     .center {
       display: flex;
@@ -45,18 +57,9 @@
       font-weight: 600;
       cursor: pointer;
     }
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 18px;
-    }
-    .card {
-      background: var(--card);
-      border-radius: 10px;
-      padding: 12px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    }
+    .btn { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+    .btn.gray { background: #22343a; }
+    .btn.red { background: var(--danger); }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -65,13 +68,10 @@
     }
     th, td {
       padding: 8px;
-      border-bottom: 1px solid rgba(255,255,255,0.03);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
       text-align: left;
     }
     th { color: var(--muted); font-size: 12px; }
-    .btn { background: var(--accent); color: white; padding: 8px 10px; border-radius: 8px; border: 0; cursor: pointer; }
-    .btn.gray { background: #22343a; }
-    .btn.red { background: var(--danger); }
     #log { height: 120px; overflow: auto; background: #071526; padding: 8px; border-radius: 6px; margin-top: 10px; }
   </style>
 </head>
@@ -79,16 +79,16 @@
   <div id="app"></div>
 
 <script>
-/* ---------- CONFIG ---------- */
-const BACKEND_ROOT = "https://dexscan-backend.onrender.com"; // <- your backend URL
+/* =============== CONFIG =============== */
+const BACKEND_ROOT = "https://dexscan-backend.onrender.com";
 const API = BACKEND_ROOT + "/api";
 
-/* ---------- AUTH ---------- */
+/* =============== AUTH HELPERS =============== */
 function setToken(t){localStorage.setItem("dex_token", t);}
 function getToken(){return localStorage.getItem("dex_token");}
 function clearToken(){localStorage.removeItem("dex_token");}
 
-/* ---------- DOM ---------- */
+/* =============== DOM =============== */
 const app = document.getElementById("app");
 
 function htmlLogin(){
@@ -106,9 +106,9 @@ function htmlLogin(){
     </div>
   `;
   document.getElementById("loginBtn").onclick = async () => {
-    const u = document.getElementById("username").value.trim();
-    const p = document.getElementById("password").value.trim();
-    if(!u || !p){ alert("Enter username & password"); return; }
+    const u = username.value.trim();
+    const p = password.value.trim();
+    if(!u || !p) return alert("Enter username & password");
     try {
       const r = await fetch(API + "/login", {
         method: "POST",
@@ -116,10 +116,8 @@ function htmlLogin(){
         body: JSON.stringify({ username: u, password: p })
       });
       const j = await r.json();
-      if (r.ok && j.ok) {
-        setToken(j.token);
-        renderApp();
-      } else alert("Login failed: " + (j.error || "unknown"));
+      if (r.ok && j.ok) { setToken(j.token); renderApp(); }
+      else alert("Login failed: " + (j.error || "invalid"));
     } catch(e){ alert("Network error: " + e.message); }
   };
 }
@@ -128,12 +126,12 @@ function htmlApp(){
   app.innerHTML = `
     <header>
       <div style="display:flex;gap:10px;align-items:center">
-        <h3 style="margin:0">DexScan V3</h3>
-        <div id="topPrices" style="font-size:13px;color:#9fb0b9">BTC | ETH | BNB</div>
+        <h3 style="margin:0">DexScan V3.2</h3>
+        <div id="topPrices" style="font-size:13px;color:#9fb0b9">BTC: -- | ETH: -- | BNB: --</div>
       </div>
       <div style="display:flex;gap:10px;align-items:center">
         <div id="modeLabel" style="font-size:13px;color:#9fb0b9">
-          Mode: <b id="modeText">--</b>
+          Mode: <b id="modeText">Loading...</b>
         </div>
         <button id="logout" class="btn gray">Logout</button>
       </div>
@@ -184,15 +182,15 @@ function htmlApp(){
       </div>
     </div>
   `;
-  document.getElementById("logout").onclick = ()=>{ clearToken(); renderApp(); };
-  document.getElementById("deepScan").onclick = deepScan;
-  document.getElementById("refreshBtn").onclick = refreshAll;
-  document.getElementById("autoToggle").onclick = toggleAuto;
-  document.getElementById("modeToggle").onclick = toggleMode;
-  document.getElementById("showFilter").onchange = loadTrades;
+  logout.onclick = ()=>{ clearToken(); renderApp(); };
+  deepScan.onclick = deepScan;
+  refreshBtn.onclick = refreshAll;
+  autoToggle.onclick = toggleAuto;
+  modeToggle.onclick = toggleMode;
+  showFilter.onchange = loadTrades;
 }
 
-/* ---------- API HELPERS ---------- */
+/* =============== API HELPERS =============== */
 function authHeaders(){
   const t = getToken();
   return t ? { "Authorization": "Bearer " + t, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
@@ -200,19 +198,19 @@ function authHeaders(){
 async function apiGet(path){
   try {
     const r = await fetch(API + path, { headers: authHeaders() });
-    if(r.status === 401){ alert("Session expired. Login again."); clearToken(); renderApp(); return null; }
+    if(r.status === 401){ clearToken(); renderApp(); return null; }
     return await r.json();
   } catch(e){ appendLog("Network error: " + e.message); return null; }
 }
 async function apiPost(path, body){
   try {
     const r = await fetch(API + path, { method: "POST", headers: authHeaders(), body: JSON.stringify(body||{}) });
-    if(r.status === 401){ alert("Session expired."); clearToken(); renderApp(); return null; }
+    if(r.status === 401){ clearToken(); renderApp(); return null; }
     return await r.json();
   } catch(e){ appendLog("Network error: " + e.message); return null; }
 }
 
-/* ---------- UI ACTIONS ---------- */
+/* =============== UI ACTIONS =============== */
 function appendLog(msg){
   const el = document.getElementById("log");
   if(!el) return;
@@ -222,17 +220,17 @@ function appendLog(msg){
 async function refreshTop(){
   const h = await apiGet("/header");
   if(!h) return;
-  const s = h.map(x=>`${x.symbol.replace("USDT","")}: ${Number(x.price||0).toFixed(2)}`).join(" | ");
-  document.getElementById("topPrices").innerText = s;
+  const btc = h.find(x=>x.symbol==="BTCUSDT")?.price || 0;
+  const eth = h.find(x=>x.symbol==="ETHUSDT")?.price || 0;
+  const bnb = h.find(x=>x.symbol==="BNBUSDT")?.price || 0;
+  document.getElementById("topPrices").innerText = `BTC: ${btc} | ETH: ${eth} | BNB: ${bnb}`;
 }
 
 async function deepScan(){
   appendLog("Deep scan started...");
   const r = await apiPost("/scan/run", {});
-  if(Array.isArray(r)){
-    renderScan(r);
-    appendLog("Deep scan finished — found " + r.length);
-  } else appendLog("Scan failed");
+  if(Array.isArray(r)){ renderScan(r); appendLog("Deep scan finished — found "+r.length); }
+  else appendLog("Scan failed");
 }
 
 function renderScan(list){
@@ -251,18 +249,16 @@ function renderScan(list){
 }
 
 async function buySymbol(sym){
-  if(!confirm("Buy " + sym + "?")) return;
   appendLog("Buy requested " + sym);
   const r = await apiPost("/trade/buy", { symbol: sym });
-  if(r && r.ok) appendLog("Buy placed (sim/live): " + sym);
-  else appendLog("Buy error: " + JSON.stringify(r));
+  appendLog(r && r.ok ? "Buy success "+sym : "Buy error");
   await loadTrades(); await loadBalance();
 }
 
 async function loadTrades(){
   const data = await apiGet("/trades");
   if(!data) return;
-  const filter = document.getElementById("showFilter").value;
+  const filter = showFilter.value;
   const tbody = document.getElementById("tradesBody");
   tbody.innerHTML = "";
   (data||[]).forEach(t=>{
@@ -282,58 +278,52 @@ async function loadTrades(){
 }
 
 async function closeTrade(id){
-  if(!confirm("Close trade " + id + "?")) return;
   appendLog("Close requested " + id);
   const r = await apiPost("/trade/sell", { trade_id: id });
-  if(r && r.ok) appendLog("Closed " + id);
-  else appendLog("Close error");
+  appendLog(r && r.ok ? "Closed "+id : "Close error");
   await loadTrades(); await loadBalance();
 }
 
 async function loadBalance(){
   const b = await apiGet("/balance");
   if(!b) return;
-  const val = b.balance?.USDT ?? 0;
-  document.getElementById("balance").innerText = Number(val).toFixed(2);
+  document.getElementById("balance").innerText = (b.balance?.USDT ?? 0).toFixed(2);
 }
 
 async function toggleAuto(){
   const cur = await apiGet("/auto");
   const next = !cur?.auto;
   await apiPost("/auto", { enabled: next });
-  document.getElementById("autoToggle").innerText = next ? "Auto: ON" : "Auto: OFF";
-  appendLog("Auto set -> " + next);
+  autoToggle.innerText = next ? "Auto: ON" : "Auto: OFF";
+  appendLog("Auto set -> "+next);
 }
 
 async function toggleMode(){
   const cur = await apiGet("/mode");
   const next = !cur?.demo;
   await apiPost("/mode", { demo: next });
-  document.getElementById("modeText").innerText = next ? "Demo" : "Live";
-  appendLog("Mode set -> " + (next ? "Demo" : "Live"));
+  modeText.innerText = next ? "Demo" : "Live";
+  appendLog("Mode set -> "+(next?"Demo":"Live"));
 }
 
 async function refreshAll(){
   await refreshTop(); await loadBalance(); await loadTrades();
 }
 
-/* ---------- MAIN ---------- */
+/* =============== MAIN =============== */
 async function renderApp(){
   const t = getToken();
   if(!t){ htmlLogin(); return; }
   htmlApp();
-  document.getElementById("modeText").innerText = "Loading...";
   await refreshAll();
+  const m = await apiGet("/mode");
+  modeText.innerText = m?.demo ? "Demo" : "Live";
   const auto = await apiGet("/auto");
-  if(auto && auto.auto){
-    appendLog("Auto active — running deep scan...");
-    await deepScan();
-    document.getElementById("autoToggle").innerText = "Auto: ON";
-  }
+  if(auto && auto.auto){ appendLog("Auto active — running deep scan..."); deepScan(); autoToggle.innerText="Auto: ON"; }
   setInterval(refreshAll, 5000);
 }
 
-/* ---------- BOOT ---------- */
+/* Boot */
 renderApp();
 </script>
 </body>
