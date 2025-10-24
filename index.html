@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DexScan V3.2 — Bitget Bot</title>
+  <title>DexScan V3.5 — Bitget Bot</title>
   <link rel="icon" href="data:,">
   <style>
     :root {
@@ -79,18 +79,20 @@
   <div id="app"></div>
 
 <script>
-/* =============== CONFIG =============== */
+/* ===== CONFIG ===== */
 const BACKEND_ROOT = "https://dexscan-backend.onrender.com";
 const API = BACKEND_ROOT + "/api";
+const PRICE_FEED = "https://api.bitget.com/api/v2/market/tickers?symbol=";
 
-/* =============== AUTH HELPERS =============== */
+/* ===== AUTH ===== */
 function setToken(t){localStorage.setItem("dex_token", t);}
 function getToken(){return localStorage.getItem("dex_token");}
 function clearToken(){localStorage.removeItem("dex_token");}
 
-/* =============== DOM =============== */
+/* ===== DOM ===== */
 const app = document.getElementById("app");
 
+/* ===== LOGIN ===== */
 function htmlLogin(){
   app.innerHTML = `
     <div class="center">
@@ -103,30 +105,25 @@ function htmlLogin(){
           Demo user: dailybuy / dailyprofitinshallah!@#
         </div>
       </div>
-    </div>
-  `;
+    </div>`;
   document.getElementById("loginBtn").onclick = async () => {
-    const u = username.value.trim();
-    const p = password.value.trim();
-    if(!u || !p) return alert("Enter username & password");
+    const u = username.value.trim(), p = password.value.trim();
+    if(!u||!p) return alert("Enter username & password");
     try {
-      const r = await fetch(API + "/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: u, password: p })
-      });
+      const r = await fetch(API+"/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:u,password:p})});
       const j = await r.json();
-      if (r.ok && j.ok) { setToken(j.token); renderApp(); }
-      else alert("Login failed: " + (j.error || "invalid"));
-    } catch(e){ alert("Network error: " + e.message); }
+      if(r.ok&&j.ok){setToken(j.token);renderApp();}
+      else alert("Login failed: "+(j.error||"invalid"));
+    }catch(e){alert("Network error: "+e.message);}
   };
 }
 
+/* ===== DASHBOARD ===== */
 function htmlApp(){
   app.innerHTML = `
     <header>
       <div style="display:flex;gap:10px;align-items:center">
-        <h3 style="margin:0">DexScan V3.2</h3>
+        <h3 style="margin:0">DexScan V3.5</h3>
         <div id="topPrices" style="font-size:13px;color:#9fb0b9">BTC: -- | ETH: -- | BNB: --</div>
       </div>
       <div style="display:flex;gap:10px;align-items:center">
@@ -180,65 +177,47 @@ function htmlApp(){
           </table>
         </div>
       </div>
-    </div>
-  `;
-  logout.onclick = ()=>{ clearToken(); renderApp(); };
-  deepScan.onclick = deepScan;
-  refreshBtn.onclick = refreshAll;
-  autoToggle.onclick = toggleAuto;
-  modeToggle.onclick = toggleMode;
-  showFilter.onchange = loadTrades;
+    </div>`;
+  logout.onclick=()=>{clearToken();renderApp();};
+  deepScan.onclick=deepScan;
+  refreshBtn.onclick=refreshAll;
+  autoToggle.onclick=toggleAuto;
+  modeToggle.onclick=toggleMode;
+  showFilter.onchange=loadTrades;
 }
 
-/* =============== API HELPERS =============== */
-function authHeaders(){
-  const t = getToken();
-  return t ? { "Authorization": "Bearer " + t, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
-}
-async function apiGet(path){
-  try {
-    const r = await fetch(API + path, { headers: authHeaders() });
-    if(r.status === 401){ clearToken(); renderApp(); return null; }
-    return await r.json();
-  } catch(e){ appendLog("Network error: " + e.message); return null; }
-}
-async function apiPost(path, body){
-  try {
-    const r = await fetch(API + path, { method: "POST", headers: authHeaders(), body: JSON.stringify(body||{}) });
-    if(r.status === 401){ clearToken(); renderApp(); return null; }
-    return await r.json();
-  } catch(e){ appendLog("Network error: " + e.message); return null; }
-}
+/* ===== API HELPERS ===== */
+function authHeaders(){const t=getToken();return t?{"Authorization":"Bearer "+t,"Content-Type":"application/json"}:{"Content-Type":"application/json"};}
+async function apiGet(p){try{const r=await fetch(API+p,{headers:authHeaders()});if(r.status===401){clearToken();renderApp();return null;}return await r.json();}catch(e){appendLog("Network error: "+e.message);return null;}}
+async function apiPost(p,b){try{const r=await fetch(API+p,{method:"POST",headers:authHeaders(),body:JSON.stringify(b||{})});if(r.status===401){clearToken();renderApp();return null;}return await r.json();}catch(e){appendLog("Network error: "+e.message);return null;}}
 
-/* =============== UI ACTIONS =============== */
-function appendLog(msg){
-  const el = document.getElementById("log");
-  if(!el) return;
-  el.innerHTML = new Date().toLocaleTimeString() + " — " + msg + "<br>" + el.innerHTML;
-}
+/* ===== LOGGING ===== */
+function appendLog(msg){const el=document.getElementById("log");if(!el)return;el.innerHTML=new Date().toLocaleTimeString()+" — "+msg+"<br>"+el.innerHTML;}
 
+/* ===== FUNCTIONS ===== */
 async function refreshTop(){
-  const h = await apiGet("/header");
-  if(!h) return;
-  const btc = h.find(x=>x.symbol==="BTCUSDT")?.price || 0;
-  const eth = h.find(x=>x.symbol==="ETHUSDT")?.price || 0;
-  const bnb = h.find(x=>x.symbol==="BNBUSDT")?.price || 0;
-  document.getElementById("topPrices").innerText = `BTC: ${btc} | ETH: ${eth} | BNB: ${bnb}`;
+  try{
+    const res=await fetch(PRICE_FEED+"BTCUSDT,ETHUSDT,BNBUSDT");
+    const j=await res.json();
+    const tickers=j.data||[];
+    const btc=tickers.find(x=>x.symbol==="BTCUSDT")?.lastPr??0;
+    const eth=tickers.find(x=>x.symbol==="ETHUSDT")?.lastPr??0;
+    const bnb=tickers.find(x=>x.symbol==="BNBUSDT")?.lastPr??0;
+    document.getElementById("topPrices").innerText=`BTC: ${btc} | ETH: ${eth} | BNB: ${bnb}`;
+  }catch(e){console.log("Top price error",e);}
 }
 
 async function deepScan(){
   appendLog("Deep scan started...");
-  const r = await apiPost("/scan/run", {});
-  if(Array.isArray(r)){ renderScan(r); appendLog("Deep scan finished — found "+r.length); }
-  else appendLog("Scan failed");
+  const r=await apiPost("/scan/run",{});
+  if(Array.isArray(r)){renderScan(r);appendLog("Deep scan finished — found "+r.length);}else appendLog("Scan failed");
 }
 
 function renderScan(list){
-  const tbody = document.getElementById("scanBody");
-  tbody.innerHTML = "";
+  const tbody=document.getElementById("scanBody");tbody.innerHTML="";
   (list||[]).forEach(it=>{
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
       <td>${it.symbol}</td>
       <td>${it.score}</td>
       <td>${it.entry?.toFixed?.(6)||"-"}</td>
@@ -249,78 +228,103 @@ function renderScan(list){
 }
 
 async function buySymbol(sym){
-  appendLog("Buy requested " + sym);
-  const r = await apiPost("/trade/buy", { symbol: sym });
-  appendLog(r && r.ok ? "Buy success "+sym : "Buy error");
-  await loadTrades(); await loadBalance();
+  appendLog("Buy requested "+sym);
+  const r=await apiPost("/trade/buy",{symbol:sym});
+  appendLog(r&&r.ok?"Buy success "+sym:"Buy error");
+  await loadTrades();await loadBalance();
 }
 
 async function loadTrades(){
-  const data = await apiGet("/trades");
-  if(!data) return;
-  const filter = showFilter.value;
-  const tbody = document.getElementById("tradesBody");
-  tbody.innerHTML = "";
-  (data||[]).forEach(t=>{
-    if(filter==="open" && t.status!=="OPEN") return;
-    if(filter==="closed" && t.status==="OPEN") return;
-    const pnl = t.unreal_pnl ?? t.pnl ?? 0;
-    const row = document.createElement("tr");
-    row.innerHTML = `
+  const data=await apiGet("/trades");
+  if(!data)return;
+  const filter=showFilter.value;
+  const tbody=document.getElementById("tradesBody");
+  tbody.innerHTML="";
+  for(const t of data){
+    if(filter==="open"&&t.status!=="OPEN")continue;
+    if(filter==="closed"&&t.status==="OPEN")continue;
+    const pnl=t.unreal_pnl??t.pnl??0;
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
       <td>${t.symbol}</td>
       <td>${t.entry_price?.toFixed?.(6)||"-"}</td>
-      <td>${t.latest_price?.toFixed?.(6)||"-"}</td>
-      <td style="color:${pnl>=0?'#7ee787':'#ff6b6b'}">${Number(pnl).toFixed(4)}</td>
+      <td id="latest-${t.symbol}">${t.latest_price?.toFixed?.(6)||"-"}</td>
+      <td id="pnl-${t.symbol}" style="color:${pnl>=0?'#7ee787':'#ff6b6b'}">${Number(pnl).toFixed(4)}</td>
       <td>${t.status}</td>
-      <td>${t.status==="OPEN" ? '<button class="btn red" onclick="closeTrade(\''+t.id+'\')">Sell</button>' : '-'}</td>`;
-    tbody.appendChild(row);
-  });
+      <td>${t.status==="OPEN"?'<button class="btn red" onclick="closeTrade(\''+t.id+'\')">Sell</button>':'-'}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+async function updateLivePNL(){
+  const tbody=document.getElementById("tradesBody");
+  const rows=[...tbody.querySelectorAll("tr")];
+  if(!rows.length)return;
+  for(const row of rows){
+    const symbol=row.children[0].innerText;
+    try{
+      const res=await fetch(PRICE_FEED+symbol);
+      const j=await res.json();
+      const p=j.data?.[0]?.lastPr;
+      if(p){
+        const latest=document.getElementById(`latest-${symbol}`);
+        if(latest)latest.innerText=Number(p).toFixed(6);
+        const entry=parseFloat(row.children[1].innerText)||0;
+        const pnl=((p-entry)/entry*100)||0;
+        const pnlEl=document.getElementById(`pnl-${symbol}`);
+        if(pnlEl){pnlEl.innerText=pnl.toFixed(2)+"%";pnlEl.style.color=pnl>=0?'#7ee787':'#ff6b6b';}
+      }
+    }catch(e){console.log("PNL error",symbol,e);}
+  }
 }
 
 async function closeTrade(id){
-  appendLog("Close requested " + id);
-  const r = await apiPost("/trade/sell", { trade_id: id });
-  appendLog(r && r.ok ? "Closed "+id : "Close error");
-  await loadTrades(); await loadBalance();
+  appendLog("Close requested "+id);
+  const r=await apiPost("/trade/sell",{trade_id:id});
+  appendLog(r&&r.ok?"Closed "+id:"Close error");
+  await loadTrades();await loadBalance();
 }
 
 async function loadBalance(){
-  const b = await apiGet("/balance");
-  if(!b) return;
-  document.getElementById("balance").innerText = (b.balance?.USDT ?? 0).toFixed(2);
+  const b=await apiGet("/balance");
+  if(!b)return;
+  document.getElementById("balance").innerText=(b.balance?.USDT??0).toFixed(2);
 }
 
 async function toggleAuto(){
-  const cur = await apiGet("/auto");
-  const next = !cur?.auto;
-  await apiPost("/auto", { enabled: next });
-  autoToggle.innerText = next ? "Auto: ON" : "Auto: OFF";
+  const cur=await apiGet("/auto");
+  const next=!cur?.auto;
+  await apiPost("/auto",{enabled:next});
+  autoToggle.innerText=next?"Auto: ON":"Auto: OFF";
   appendLog("Auto set -> "+next);
 }
 
 async function toggleMode(){
-  const cur = await apiGet("/mode");
-  const next = !cur?.demo;
-  await apiPost("/mode", { demo: next });
-  modeText.innerText = next ? "Demo" : "Live";
+  const cur=await apiGet("/mode");
+  const next=!cur?.demo;
+  await apiPost("/mode",{demo:next});
+  modeText.innerText=next?"Demo":"Live";
   appendLog("Mode set -> "+(next?"Demo":"Live"));
 }
 
 async function refreshAll(){
-  await refreshTop(); await loadBalance(); await loadTrades();
+  await refreshTop();await loadBalance();await loadTrades();
 }
 
-/* =============== MAIN =============== */
+/* ===== MAIN ===== */
 async function renderApp(){
-  const t = getToken();
-  if(!t){ htmlLogin(); return; }
+  const t=getToken();
+  if(!t){htmlLogin();return;}
   htmlApp();
   await refreshAll();
-  const m = await apiGet("/mode");
-  modeText.innerText = m?.demo ? "Demo" : "Live";
-  const auto = await apiGet("/auto");
-  if(auto && auto.auto){ appendLog("Auto active — running deep scan..."); deepScan(); autoToggle.innerText="Auto: ON"; }
-  setInterval(refreshAll, 5000);
+  const m=await apiGet("/mode");
+  modeText.innerText=m?.demo?"Demo":"Live";
+  const auto=await apiGet("/auto");
+  if(auto&&auto.auto){appendLog("Auto active — running deep scan...");deepScan();autoToggle.innerText="Auto: ON";}
+  setInterval(refreshTop,5000);
+  setInterval(loadTrades,7000);
+  setInterval(updateLivePNL,5000);
+  setInterval(loadBalance,10000);
 }
 
 /* Boot */
