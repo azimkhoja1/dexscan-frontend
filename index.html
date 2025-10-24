@@ -1,99 +1,280 @@
 <!doctype html>
 <html>
 <head>
-<meta charset="utf-8" />
-<title>DexScan V3 Frontend</title>
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<style>
-body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:#071226;color:#e6f0f0;}
-header{background:#081424;padding:10px;display:flex;justify-content:space-between;align-items:center;}
-.card{background:#0f2430;margin:10px;padding:10px;border-radius:8px;}
-button{padding:6px 10px;margin:3px;border:none;border-radius:6px;cursor:pointer;color:white}
-.btn{background:#00b894}
-.btn.gray{background:#3a3a3a}
-.btn.red{background:#e74c3c}
-table{width:100%;border-collapse:collapse;margin-top:5px}
-th,td{padding:6px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px}
-th{color:#9fb0b9}
-#log{font-size:12px;max-height:150px;overflow:auto;background:#091a25;padding:5px;margin-top:5px;border-radius:6px}
-</style>
+  <meta charset="utf-8" />
+  <title>DexScan V3 — Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{--bg:#071226;--card:#0f2430;--muted:#9fb0b9;--accent:#16a085;--danger:#e74c3c}
+    body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(180deg,#041024,#071020);color:#e6f0f0}
+    .center{display:flex;align-items:center;justify-content:center;height:100vh}
+    .login-card{background:var(--card);padding:24px;border-radius:12px;width:360px;box-shadow:0 10px 30px rgba(0,0,0,0.6)}
+    input, button{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:0}
+    button{background:var(--accent);color:white;font-weight:600}
+    header{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;background:transparent}
+    .container{display:flex;gap:12px;padding:12px}
+    .card{background:var(--card);border-radius:10px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,0.5)}
+    table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
+    th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);text-align:left}
+    th{color:#9fb0b9;font-size:12px}
+    .btn{background:var(--accent);color:white;padding:8px 10px;border-radius:8px;border:0;cursor:pointer}
+    .btn.gray{background:#22343a}
+    .btn.red{background:var(--danger)}
+    #log{height:120px;overflow:auto;background:#071526;padding:8px;border-radius:6px;margin-top:10px}
+  </style>
 </head>
 <body>
-<header>
-  <div><b>DexScan V3</b> — BTC <span id="btc">-</span> | ETH <span id="eth">-</span> | BNB <span id="bnb">-</span></div>
-  <div>Mode: <span id="modeTxt">-</span></div>
-</header>
-
-<div class="card">
-  <button id="deepScan" class="btn">🔍 Deep Scan</button>
-  <button id="autoBtn" class="btn gray">Auto: OFF</button>
-  <button id="refresh" class="btn gray">Refresh</button>
-</div>
-
-<div class="card">
-  <h3>Scanner</h3>
-  <table><thead><tr><th>Symbol</th><th>Score</th><th>Entry</th><th>Reasons</th><th></th></tr></thead>
-  <tbody id="scanBody"></tbody></table>
-</div>
-
-<div class="card">
-  <h3>Trades</h3>
-  Balance: <b id="bal">-</b>
-  <table><thead><tr><th>Symbol</th><th>Entry</th><th>Latest</th><th>PNL</th><th>Status</th><th></th></tr></thead>
-  <tbody id="tradesBody"></tbody></table>
-</div>
-
-<div class="card"><div id="log"></div></div>
+  <div id="app"></div>
 
 <script>
-const API="https://dexscan-backend.onrender.com/api";
-const logBox=document.getElementById("log");
-const L=msg=>logBox.innerHTML=new Date().toLocaleTimeString()+" — "+msg+"<br>"+logBox.innerHTML;
-async function get(p){try{const r=await fetch(API+p);return await r.json();}catch{return null;}}
-async function post(p,d){try{const r=await fetch(API+p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)});return await r.json();}catch{return null;}}
+/* ========== CONFIG ========== */
+const BACKEND_ROOT = "https://dexscan-backend.onrender.com"; // <-- change if needed
+const API = BACKEND_ROOT + "/api";
 
-async function loadHeader(){
-  const r=await get("/header");
-  if(!r)return;
-  for(const t of r){const id=t.symbol.slice(0,3).toLowerCase();document.getElementById(id).textContent=t.price.toFixed(2);}
+/* ========== simple auth storage ========== */
+function setToken(t){localStorage.setItem("dex_token", t);}
+function getToken(){return localStorage.getItem("dex_token");}
+function clearToken(){localStorage.removeItem("dex_token");}
+
+/* ========== DOM render helpers ========== */
+const app = document.getElementById("app");
+function htmlLogin(){
+  app.innerHTML = `
+    <div class="center">
+      <div class="login-card">
+        <h2 style="margin:0 0 6px 0">DexScan Login</h2>
+        <input id="username" placeholder="Username" />
+        <input id="password" type="password" placeholder="Password" />
+        <button id="loginBtn">Login</button>
+        <div style="font-size:13px;color:#9fb0b9;margin-top:8px">Demo user available: dailybuy / dailyprofitinshallah!@# (change after testing)</div>
+      </div>
+    </div>
+  `;
+  document.getElementById("loginBtn").onclick = async () => {
+    const u = document.getElementById("username").value.trim();
+    const p = document.getElementById("password").value.trim();
+    if(!u||!p){alert("username/password required"); return;}
+    const r = await fetch(API + "/login", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ username: u, password: p })});
+    const j = await r.json();
+    if (r.ok && j.ok) { setToken(j.token); renderApp(); } else { alert("Login failed: " + (j.error || JSON.stringify(j))); }
+  };
 }
-async function loadBalance(){const b=await get("/balance");if(b)document.getElementById("bal").innerText=(b.balance.USDT||0).toFixed(2);}
-async function scan(){
-  L("Scanning...");
-  const d=await post("/scan/run");
-  const tb=document.getElementById("scanBody");tb.innerHTML="";
-  d.forEach(c=>tb.innerHTML+=`<tr><td>${c.symbol}</td><td>${c.score}</td><td>${c.entry.toFixed(4)}</td><td>${(c.reasons||[]).join(', ')}</td><td><button class='btn' onclick="buy('${c.symbol}')">Buy</button></td></tr>`);
+
+function htmlApp(){
+  app.innerHTML = `
+    <header style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px">
+      <div style="display:flex;gap:10px;align-items:center">
+        <h3 style="margin:0">DexScan V3</h3>
+        <div id="topPrices" style="font-size:13px;color:#9fb0b9">BTC - ETH - BNB</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div id="modeLabel" style="font-size:13px;color:#9fb0b9">Mode: <b id="modeText">--</b></div>
+        <button id="logout" class="btn gray">Logout</button>
+      </div>
+    </header>
+
+    <div style="display:flex;gap:12px;padding:12px">
+      <div style="width:320px">
+        <div class="card">
+          <h4 style="margin:0 0 8px 0">Controls</h4>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <button id="deepScan" class="btn">Deep Scan</button>
+            <button id="autoToggle" class="btn gray">Auto: OFF</button>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <button id="modeToggle" class="btn">Switch Mode</button>
+            <button id="refreshBtn" class="btn gray">Refresh</button>
+          </div>
+          <div id="log" style="font-size:12px"></div>
+        </div>
+      </div>
+
+      <div style="flex:1;display:flex;flex-direction:column;gap:12px">
+        <div class="card">
+          <h4 style="margin:0 0 8px 0">Scanner Results</h4>
+          <table><thead><tr><th>Symbol</th><th>Score</th><th>Entry</th><th>Reasons</th><th>Action</th></tr></thead>
+            <tbody id="scanBody"></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <h4 style="margin:0 0 8px 0">Trades & Wallet</h4>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>Balance: <b id="balance">-</b></div>
+            <div>
+              <select id="showFilter"><option value="all">All</option><option value="open">Open</option><option value="closed">Closed</option></select>
+            </div>
+          </div>
+          <table><thead><tr><th>Symbol</th><th>Entry</th><th>Latest</th><th>PNL</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="tradesBody"></tbody></table>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("logout").onclick = () => { clearToken(); renderApp(); };
+  document.getElementById("deepScan").onclick = deepScan;
+  document.getElementById("refreshBtn").onclick = refreshAll;
+  document.getElementById("autoToggle").onclick = toggleAuto;
+  document.getElementById("modeToggle").onclick = toggleMode;
+  document.getElementById("showFilter").onchange = loadTrades;
 }
-async function buy(sym){await post("/trade/buy",{symbol:sym});L("Buy "+sym);loadTrades();loadBalance();}
-async function sell(id){await post("/trade/sell",{trade_id:id});L("Sell "+id);loadTrades();loadBalance();}
-async function loadTrades(){
-  const d=await get("/trades");if(!d)return;
-  const tb=document.getElementById("tradesBody");tb.innerHTML="";
-  d.forEach(t=>{
-    const pnl=(t.unreal_pnl||t.pnl||0).toFixed(3);
-    tb.innerHTML+=`<tr><td>${t.symbol}</td><td>${t.entry_price?.toFixed(3)||"-"}</td><td>${t.latest_price?.toFixed(3)||"-"}</td><td style="color:${pnl>=0?'#00e676':'#ff5252'}">${pnl}</td><td>${t.status}</td><td>${t.status==='OPEN'?'<button class="btn red" onclick="sell('+t.id+')">Sell</button>':'-'}</td></tr>`;
+
+/* ========== API helpers ========== */
+function authHeaders() {
+  const t = getToken();
+  return t ? { "Authorization": "Bearer " + t, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
+}
+async function apiGet(path) {
+  try {
+    const r = await fetch(API + path, { headers: authHeaders() });
+    if (r.status === 401) { alert("Session expired — login again"); clearToken(); renderApp(); return null; }
+    const j = await r.json();
+    return j;
+  } catch (e) { appendLog("Network err: " + e.message); return null; }
+}
+async function apiPost(path, body) {
+  try {
+    const r = await fetch(API + path, { method: "POST", headers: authHeaders(), body: JSON.stringify(body || {}) });
+    if (r.status === 401) { alert("Session expired — login again"); clearToken(); renderApp(); return null; }
+    const j = await r.json();
+    return j;
+  } catch (e) { appendLog("Network err: " + e.message); return null; }
+}
+
+/* ========== UI / actions ========== */
+function appendLog(msg) {
+  const el = document.getElementById("log");
+  el.innerHTML = new Date().toLocaleTimeString() + " — " + msg + "<br>" + el.innerHTML;
+}
+
+async function refreshTop() {
+  const h = await apiGet("/header");
+  if (!h) return;
+  const b = h.map(x => `${x.symbol.replace("USDT","")}: ${Number(x.price||0).toFixed(2)}`).join(" | ");
+  document.getElementById("topPrices").innerText = b;
+}
+
+async function deepScan() {
+  appendLog("Deep scan started...");
+  const r = await apiPost("/scan/run", {});
+  if (r && Array.isArray(r)) {
+    renderScan(r);
+    appendLog("Deep scan finished — found " + r.length);
+  } else {
+    appendLog("Scan failed");
+  }
+}
+
+function renderScan(list) {
+  const tbody = document.getElementById("scanBody");
+  tbody.innerHTML = "";
+  (list || []).forEach(item => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${item.symbol}</td><td>${item.score}</td><td>${item.entry?.toFixed?.(6)||"-"}</td><td>${(item.reasons||[]).slice(0,3).join(", ")}</td><td><button class="btn" onclick="buySymbol('${item.symbol}')">Buy</button></td>`;
+    tbody.appendChild(tr);
   });
 }
 
-async function toggleAuto(){
-  const r=await get("/auto");
-  const next=!r.auto;
-  await post("/auto",{enabled:next});
-  document.getElementById("autoBtn").innerText=next?"Auto: ON":"Auto: OFF";
-  if(next)L("Auto scan ON");
+async function buySymbol(sym) {
+  if (!confirm("Place buy for " + sym + " ?")) return;
+  appendLog("Buy requested " + sym);
+  const r = await apiPost("/trade/buy", { symbol: sym });
+  if (r && r.ok) appendLog("Buy placed (sim/live): " + sym);
+  else appendLog("Buy error: " + JSON.stringify(r));
+  await loadTrades();
+  await loadBalance();
 }
-document.getElementById("deepScan").onclick=scan;
-document.getElementById("autoBtn").onclick=toggleAuto;
-document.getElementById("refresh").onclick=()=>{loadHeader();loadBalance();loadTrades();};
 
-(async ()=>{
-  loadHeader();loadBalance();loadTrades();
-  const auto=await get("/auto");
-  if(auto?.auto){L("Auto ON → auto scan running");await scan();}
-  setInterval(loadHeader,5000);
-  setInterval(loadTrades,5000);
-  setInterval(loadBalance,7000);
-})();
+async function loadTrades() {
+  const data = await apiGet("/trades");
+  if (!data) return;
+  const filter = document.getElementById("showFilter").value;
+  const tbody = document.getElementById("tradesBody");
+  tbody.innerHTML = "";
+  (data || []).forEach(t => {
+    if (filter === "open" && t.status !== "OPEN") return;
+    if (filter === "closed" && t.status === "OPEN") return;
+    const pnl = (t.unreal_pnl ?? t.pnl ?? 0);
+    const row = document.createElement("tr");
+    row.innerHTML = `<td>${t.symbol}</td>
+      <td>${t.entry_price?.toFixed?.(6)||"-"}</td>
+      <td>${t.latest_price?.toFixed?.(6)||"-"}</td>
+      <td style="color:${pnl>=0?'#7ee787':'#ff6b6b'}">${(typeof pnl==="number"?pnl.toFixed(6):pnl)}</td>
+      <td>${t.status}</td>
+      <td>${t.status==="OPEN"?'<button class="btn red" onclick="closeTrade(\\''+t.id+'\\')">Sell</button>':'-'}</td>`;
+    tbody.appendChild(row);
+  });
+}
+
+async function closeTrade(id) {
+  if (!confirm("Close trade " + id + " ?")) return;
+  appendLog("Close requested " + id);
+  const r = await apiPost("/trade/sell", { trade_id: id });
+  if (r && r.ok) appendLog("Closed " + id);
+  else appendLog("Close error");
+  await loadTrades();
+  await loadBalance();
+}
+
+async function loadBalance() {
+  const b = await apiGet("/balance");
+  if (b && (b.balance || b.balance === 0)) {
+    const val = b.balance?.USDT ?? (b.balance ?? {}).USDT ?? 0;
+    document.getElementById("balance").innerText = Number(val).toFixed(2);
+  }
+}
+
+async function toggleAuto() {
+  const cur = (await apiGet("/auto")) || {};
+  const next = !cur.auto;
+  await apiPost("/api/auto".replace("/api","/api"), { enabled: next }).catch(()=>{});
+  // note: older backend uses /api/auto; below call is consistent
+  await apiPost("/auto", { enabled: next });
+  document.getElementById("autoToggle").innerText = next ? "Auto: ON" : "Auto: OFF";
+  appendLog("Auto set -> " + next);
+}
+
+async function toggleMode() {
+  // toggle demo/live server-side config (note: this writes config file, not env)
+  const cur = (await apiGet("/mode")) || {};
+  const next = !(cur.demo);
+  await apiPost("/mode", { demo: next });
+  document.getElementById("modeText").innerText = next ? "Demo" : "Live";
+  appendLog("Mode set -> " + (next ? "Demo" : "Live"));
+}
+
+async function refreshAll(){
+  await refreshTop();
+  await loadBalance();
+  await loadTrades();
+}
+
+/* ========== init / boot ========== */
+async function renderApp() {
+  const t = getToken();
+  if (!t) { htmlLogin(); return; }
+  // token exists — show app
+  htmlApp();
+  document.getElementById("modeText").innerText = "Loading...";
+  await refreshAll();
+  // auto run if auto ON
+  try {
+    const auto = await apiGet("/auto");
+    if (auto && auto.auto) {
+      appendLog("Auto mode active — running deep scan");
+      await deepScan();
+      document.getElementById("autoToggle").innerText = "Auto: ON";
+    } else {
+      document.getElementById("autoToggle").innerText = "Auto: OFF";
+    }
+  } catch(e){}
+  // periodic refreshes
+  setInterval(refreshAll, 5000);
+}
+
+/* ========== boot ========= */
+renderApp();
 </script>
 </body>
 </html>
